@@ -1,0 +1,221 @@
+html, body { 
+    height: 100%; 
+    margin: 0px; 
+    padding: 25px 0px 0px 0px;
+}
+
+.container {
+    padding-bottom: 200px;
+}
+
+.indidark {
+    background-color: #333 !important;
+}
+.indiblue {
+    background-color: #4C73DD !important;
+}
+    .indiblue:hover {
+        background-color: #6F8FE7 !important;
+    }
+
+.indiblue-text {
+    color: #4C73DD;
+}
+
+#page2 {
+    display: none;
+}
+
+
+#intro {
+    font-size: 1.15em;
+    color: #555;
+}
+
+.tech-explanation * {
+    margin-bottom: 0px;
+    margin-top: 0px;
+}
+.tech-explanation img {
+    width: 100%;
+}
+.tech-explanation span {
+    color:#999;
+}
+.tech-explanation p {
+
+}
+
+/*****************
+*** STEPS ******************/
+#steps {
+    padding-top:10px;
+}
+
+.step {
+    display: inline-block;
+    background: #ddd;
+    width: 20px;
+    height: 20px;
+    border-radius: 100%;
+    margin: 0px 5px;
+    position: relative;
+}
+    .step span {
+        display: none;
+        position: absolute;
+        top: -30px;
+        width: 100px;
+        left: -40px;
+        color: #4C73DD;
+    }
+
+.step.active {
+    background: #4C73DD;
+}
+    .step.active span {
+        display: block;
+    }
+
+.step.complete {
+    background: #4C73DD;
+}
+
+/******************** ICONS *****************/
+.site-icon {
+    height: 3em;
+}
+
+.suggestion-link {
+    display: inline-block;
+}
+
+/******************** FORM ******************/
+.input-field {
+    margin-top: 0px;
+}
+
+/* label color */
+.input-field label {
+    color: #555;
+}
+/* label focus color */
+.input-field input[type=text]:focus + label {
+    color: #555;
+}
+/* label underline focus color */
+.input-field input[type=text]:focus {
+    border-bottom: 1px solid #6F8FE7;
+    box-shadow: 0 1px 0 0 #6F8FE7;
+}
+/* valid color */
+.input-field input[type=text].valid {
+    border-bottom: 1px solid #4C73DD;
+    box-shadow: 0 1px 0 0 #4C73DD;
+}
+/* invalid color */
+.input-field input[type=text].invalid {
+    border-bottom: 1px solid #4C73DD;
+    box-shadow: 0 1px 0 0 #4C73DD;
+}
+/* icon prefix focus color */
+.input-field .prefix.active {
+    color: #6F8FE7;
+}
+
+.submit-btn {
+    display: inline-block;
+    margin-top:8px;
+    width:100%;
+}
+
+.purple {
+    background-color: #A655CB !important;
+}
+    .purple.btn:hover, .purple.btn:active {
+        background-color: #D884FF !important;
+    }
+    .purple.btn:focus {
+        background-color: #A655CB !important;
+    }
+
+/******************** CARDS ******************/
+.api-results {
+    display: none;
+}
+.card {
+    /*display: none;*/
+    cursor: pointer;
+}
+    .card p {
+        width: 50%;
+        margin: 0px;
+        padding: 20px;
+        float: left;
+        text-align: center;
+    }
+    .card span 
+{
+        width: 50%;
+        padding: 20px;
+        float: right;
+        text-align: center;
+    }
+
+.selected-api {
+    border: 5px solid #ffab40;
+}
+
+#results-btn {
+    display: none;
+    padding:5px;
+    height:inherit;
+}
+
+/******************** RESULTS *********************/
+#clear {
+    float: right;
+}
+
+#results-holder {
+    margin-bottom:80px;
+}
+
+#counts {
+    font-size: 18px;
+    margin-bottom: 30px;
+}
+    #counts span {
+        margin-right: 20px;
+    }
+
+.result.row {
+    margin-top:15px;
+    margin-bottom:10px !important;
+}
+
+.choice {
+    display: none;
+    text-align: center;
+}
+    .choice p {
+        font-size: 1.65em;
+        color: #555;
+    }
+
+#results-form {
+    display: none;
+}
+
+    #results-form p {
+        font-size: 1.15em;
+        color: #555;
+    }
+
+#email-submit-response {
+    display: none;
+}
+    #email-submit-response p {
+        font-size: 1.65em;
+        color: #555;
+    }

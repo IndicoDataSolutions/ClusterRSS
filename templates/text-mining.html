@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <!-- D3.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
+    <script src="http://d3js.org/queue.v1.min.js"></script>
+    
+    <!-- stats -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r14/Stats.js"></script>
+    
+    <!-- jQuery -->
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+
+    <!-- SPINNER -->
+    <link rel="stylesheet" href="/static/css/loader.css">
+    
+    <!-- Stylesheet -->
+    <style>
+      body { 
+        margin: 0px;
+        text-align: center; 
+        background: white;
+      }
+      .content_wrapper {
+        background: white;
+      }
+
+      a {
+        text-decoration: none;
+        color: #4c73dd;
+      }
+
+      #tooltip {
+        position: absolute;
+        z-index: 9001;
+        display: none;
+        padding: 20px 15px;
+        border-radius: 3px;
+        border: 2px solid cornflowerblue;
+        background: rgba(255, 255, 255, 0.8);
+        text-align: left;
+        width: 300px;
+        transition:300ms all linear;
+        -webkit-transition:300ms all linear;
+      }
+        #tooltip > p > div > p {
+          padding:10px;
+        }
+
+      #banner {
+        position: absolute;
+        z-index: 9000;
+        top: 0px;
+        left: 0px;
+        right: 0px;
+        background-color: rgba(230,230,230,0.6);
+        display: none;
+        text-align: left;
+        padding:18px 30px;
+        font-size: 18px;
+      }
+
+      #chart {
+        position: relative;
+        z-index: 8998;
+        transition:500ms all ease-in;
+        -webkit-transition:500ms all ease-in;
+      }
+
+      #info {
+        box-sizing: border-box;
+        position: fixed;
+        z-index:8999;
+        width:400px;
+        right:-400px;
+        top:0px;
+        bottom:0px;
+        background: white;
+        padding: 80px 40px;
+        text-align: left;
+        transition:500ms all ease-in;
+        -webkit-transition:500ms all ease-in;
+      }
+        #info p {
+          text-align: left;
+        }
+        #info .text {
+          height: 300px;
+          overflow-x: hidden;
+          margin-bottom: 20px;
+        }
+
+        #info .text::-webkit-scrollbar {
+          -webkit-appearance: none;
+          width: 7px;
+        }
+        #info .text::-webkit-scrollbar-thumb {
+          border-radius: 4px;
+          background-color: rgba(0,0,0,.5);
+          -webkit-box-shadow: 0 0 1px rgba(255,255,255,.5);
+        }
+
+      .spinner-holder {
+        margin-top:100px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      
+      <div class="spinner-holder">
+        <div class="sk-folding-cube">
+          <div class="sk-cube1 sk-cube"></div>
+          <div class="sk-cube2 sk-cube"></div>
+          <div class="sk-cube4 sk-cube"></div>
+          <div class="sk-cube3 sk-cube"></div>
+        </div>
+      </div>
+
+      <div id="banner">
+        <b></b> - <strong>Keywords</strong>: <span></span>
+      </div>
+
+      <div id="info">
+        <div class="title"><b><a href=""></a></b></div><br>
+        <div class="text"></div>
+        <div class="keywords"></div>
+        <div class="people"></div>
+        <div class="places"></div>
+        <div class="organizations"></div>
+      </div>
+
+      <div id="tooltip">
+        <p>
+          <b class="title"></b><br>
+          <div class="keywords"></div>
+          <div class="people"></div>
+          <div class="places"></div>
+          <div class="organizations"></div>
+        </p>
+      </div>
+
+      <div id="chart"></div>
+    </div>
+    <script src="/static/js/textMining.js"></script>
+  </body>
+</html>
