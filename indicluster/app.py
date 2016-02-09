@@ -220,7 +220,7 @@ class RSSHandler(tornado.web.RequestHandler):
 # NOTE: nginx will be routing /text-mining requests to this app. For example, posts in javascript
 #       need to specify /text-mining/query, not /query
 application = tornado.web.Application(
-    [(r"/", MainHandler), (r"/add-rss-feed", RSSHandler), (r"/query", QueryHandler)],
+    [(r"/text-mining", MainHandler), (r"/text-mining/add-rss-feed", RSSHandler), (r"/text-mining/query", QueryHandler)],
     template_path=abspath(os.path.join(__file__, "../../templates")),
     static_path=abspath(os.path.join(__file__, "../../static")),
     cookie_secret="verytemporarycookiesecret",

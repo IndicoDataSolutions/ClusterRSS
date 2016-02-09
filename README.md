@@ -4,6 +4,8 @@ Setup
 ------
 
 ```bash
+sudo apt-get install python-numpy python-scipy
+sudo pip install numpy scipy
 python setup.py develop
 python -m indicluster.models # generate sqlite db
 # Add INDICO_API_KEY to ~/.bashrc

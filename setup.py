@@ -14,10 +14,10 @@ if __name__ == "__main__":
             "gevent==1.0.2",
             "IndicoIo==0.13.0",
             "newspaper==0.0.9.8",
-            "numpy==1.10.4",
+            # "numpy==1.10.4",
             "requests==2.3.0",
             "scikit-learn==0.17",
-            "scipy==0.17.0",
+            # "scipy==0.17.0",
             "SQLAlchemy==1.0.11",
             "tornado==4.3"
         ],
