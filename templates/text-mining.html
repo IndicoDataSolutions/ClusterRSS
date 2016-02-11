@@ -166,6 +166,11 @@
 
       <div id="chart"></div>
     </div>
+    {% if DEBUG %}
     <script src="{{ static_url('js/textMining.js') }}"></script>
+    {% else %}
+    <!-- NGINX routing stuff -->
+    <script src="/text-mining{{ static_url('js/textMining.js') }}"></script>
+    {% endif %}
   </body>
 </html>

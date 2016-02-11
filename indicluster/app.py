@@ -34,6 +34,7 @@ from indicluster.models import Entry, Base
 
 import indicoio
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
+DEBUG = os.getenv('DEBUG', True)
 
 POOL = Pool(8)
 REQUEST_HEADERS = {'screensize': '2556x1454', 'uid': 'AAAAAF41ulYaCWhtAR9LWQ=='}
@@ -80,7 +81,7 @@ def update_article(article):
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        self.render('text-mining.html')
+        self.render('text-mining.html', DEBUG=DEBUG)
 
 class QueryHandler(tornado.web.RequestHandler):
     """
@@ -232,7 +233,7 @@ application = tornado.web.Application(
     template_path=abspath(os.path.join(__file__, "../../templates")),
     static_path=abspath(os.path.join(__file__, "../../static")),
     cookie_secret="verytemporarycookiesecret",
-    debug=True
+    debug=DEBUG
 )
 
 if __name__ == "__main__":
