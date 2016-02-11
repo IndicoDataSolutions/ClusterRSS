@@ -28,9 +28,9 @@ class Entry(Base):
     __tablename__ = 'entries'
 
     id = Column('id', Integer, primary_key=True)
-    text = Column('text', String)
+    text = Column('text', String, unique=True)
     title = Column('title', String)
-    link = Column('link', String)
+    link = Column('link', String, unique=True)
     indico = Column('indico', String)
     group = Column('group', String)
     rss_feed = Column('rss_feed', String)

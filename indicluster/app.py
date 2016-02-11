@@ -36,13 +36,16 @@ import indicoio
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
 
 POOL = Pool(8)
-HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+REQUEST_HEADERS = {'screensize': '2556x1454', 'uid': 'AAAAAF41ulYaCWhtAR9LWQ=='}
+USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.39 Safari/537.36'
+HEADERS = {'User-Agent': USER_AGENT}
 NEWSPAPER_CONFIG = Configuration()
 NEWSPAPER_CONFIG.fetch_images = False
 NEWSPAPER_CONFIG.memoize_articles = False
 NEWSPAPER_CONFIG.request_timeout = 5
 NEWSPAPER_CONFIG.browser_user_agent = HEADERS['User-Agent']
 NEWSPAPER_CONFIG.http_success_only = True
+feedparser.USER_AGENT = USER_AGENT
 
 engine = create_engine('sqlite:///' + abspath(os.path.join(__file__, "../../text-mining.db")))
 Base.metadata.bind = engine
@@ -53,7 +56,8 @@ DBSession = sessionmaker(bind=engine)
 def _read_text_from_url(url):
     try:
         article = Article(url, config=NEWSPAPER_CONFIG)
-        article.download()
+        html = requests.get(url, headers=HEADERS, cookies=REQUEST_HEADERS).text
+        article.set_html(html)
         article.parse()
         assert article.text
         return article.text
@@ -107,6 +111,7 @@ class QueryHandler(tornado.web.RequestHandler):
         query_text_features = indicoio.text_features(query)
 
         entries_with_dups = session.query(Entry).filter_by(group=group).all()
+        print "Number of entries (with duplicates): %d" % len(entries_with_dups)
         entries = []
         entry_links = []
         for entry in entries_with_dups:
@@ -120,6 +125,8 @@ class QueryHandler(tornado.web.RequestHandler):
                        'indico': json.loads(entry.indico),
                        'distance': spatial.distance.cosine(json.loads(entry.indico)['text_features'], query_text_features)}
                       for entry in entries]
+
+        print "Number of entries (without duplicates): %d" % len(entry_dicts)
 
         sorted_entry_dicts = sorted(entry_dicts, key=lambda k: k['distance'])
         features_matrix = [entry['indico']['text_features'] for entry in sorted_entry_dicts]
@@ -157,9 +164,10 @@ class RSSHandler(tornado.web.RequestHandler):
         data = json.loads(self.request.body)
         group = data.get('group')
         url = data.get("url")
+        print "Processing %s: %s" % (group, url)
         
         try:
-            feed = feedparser.parse(url)
+            feed = feedparser.parse(url, request_headers=REQUEST_HEADERS)
         except Exception:
             return json.dumps({
                 'error': 'Invalid rss feed'
