@@ -18,17 +18,36 @@ function groupBy( array , sortingFunction ) {
   return groupedClusters
 }
 
-$.post('/query', JSON.stringify({'group': 'O&G', 'query': 'I hate the desert'}), function (data) {
-  var dataset = {
-    'title': '',
-    'children': groupBy(JSON.parse(data), function(obj) {return obj['cluster']}),
-    'top': true
-  };
-
-  $('.spinner-holder').hide();
-
-  drawAll(function(err){ console.log(err) }, dataset);
+$.get('/text-mining/query', function(data) {
+  data = JSON.parse(data);
+  data.forEach(function(group, i) {
+    $('#query > select[name="group"]').append('<option value="'+group+'"]>'+group+'</option>')
+  });
 });
+
+$('#query').submit(function(e) {
+  e.preventDefault();
+
+  var group = $(this).find('[name="group"]').val();
+  var query = $(this).find('[name="query"]').val();
+
+  $('.spinner-holder').show();
+
+  $.post('/text-mining/query', JSON.stringify({'group': group, 'query': query}), function (data) {
+    var dataset = {
+      'title': '',
+      'children': groupBy(JSON.parse(data), function(obj) {return obj['cluster']}),
+      'top': true
+    };
+
+    $('.spinner-holder').hide();
+
+    drawAll(function(err){ console.log(err) }, dataset);
+  });
+
+  return false;
+});
+
   
 function drawAll(error, dataset) {
   ////////////////////////////////////////////////////////////// 

@@ -224,7 +224,7 @@ application = tornado.web.Application(
     template_path=abspath(os.path.join(__file__, "../../templates")),
     static_path=abspath(os.path.join(__file__, "../../static")),
     cookie_secret="verytemporarycookiesecret",
-    debug=False
+    debug=True
 )
 
 if __name__ == "__main__":
