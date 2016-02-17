@@ -14,6 +14,7 @@ import os
 from os.path import abspath, dirname
 from operator import itemgetter
 from random import randint
+from itertools import islice, chain
 
 import tornado.ioloop
 import tornado.web
@@ -21,6 +22,7 @@ import requests
 import feedparser
 from newspaper import Article
 from newspaper.configuration import Configuration
+from selenium import webdriver
 
 from gevent.pool import Pool
 from scipy import spatial
@@ -36,6 +38,7 @@ import indicoio
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
 DEBUG = os.getenv('DEBUG', True)
 
+DRIVER = webdriver.PhantomJS('/usr/local/bin/phantomjs')
 POOL = Pool(8)
 REQUEST_HEADERS = {'screensize': '2556x1454', 'uid': 'AAAAAF41ulYaCWhtAR9LWQ=='}
 USER_AGENT = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/49.0.2623.39 Safari/537.36'
@@ -53,16 +56,23 @@ Base.metadata.bind = engine
 
 DBSession = sessionmaker(bind=engine)
 
+def batched(iterable, size):
+    sourceiter = iter(iterable)
+    while True:
+        batchiter = islice(sourceiter, size)
+        yield list(chain([batchiter.next()], batchiter))
 
 def _read_text_from_url(url):
     try:
         article = Article(url, config=NEWSPAPER_CONFIG)
-        html = requests.get(url, headers=HEADERS, cookies=REQUEST_HEADERS).text
-        article.set_html(html)
+        DRIVER.get(url)
+        article.set_html(DRIVER.page_source)
         article.parse()
         assert article.text
         return article.text
     except Exception:
+        import traceback
+        traceback.print_exc()
         # page doesn't exist or couldn't be parsed
         return ""
 
@@ -182,26 +192,52 @@ class RSSHandler(tornado.web.RequestHandler):
                 'error': "rss feed missing standard field 'title' and/or 'link'"
             })
 
-        text = POOL.map(_read_text_from_url, links)
+        text = map(_read_text_from_url, links)
         objs = zip(links, titles, text)
         # obj[2] --> text
         objs = filter(lambda obj: obj[2].strip() != "", objs)
         text = [item[2] for item in objs] # no longer contains empty strings
-        indico = indicoio.analyze_text(
-            text,
-            apis=['text_features', 'people', 'places', 'organizations']
-        )
-        keywords = indicoio.keywords(text, version=2, top_n=3)
+        if not text:
+            print "URL", url
+            print "LINKS", links
+            return self.write(json.dumps({}))
+
+        text_features = []
+        people = []
+        places = []
+        organizations = []
+        keywords = []
+        title_keywords = []
+        sentiment = []
+        for batch in batched(text, 20): 
+            try:
+                indico_results = indicoio.analyze_text(
+                    batch,
+                    apis=['text_features', 'people', 'places', 'organizations']
+                )
+                text_features.extend(indico_results['text_features'])
+                people.extend(indico_results['people'])
+                places.extend(indico_results['places'])
+                organizations.extend(indico_results['organizations'])
+                keywords.extend(indicoio.keywords(batch, version=2, top_n=3))
+                title_keywords.extend(indicoio.keywords(batch, version=2, top_n=3))
+                sentiment.extend(indicoio.sentiment(batch))
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+
         remapped_results = zip(
-            indico['text_features'],
-            indico['people'],
-            indico['places'],
-            indico['organizations'],
-            keywords
+            text_features,
+            people,
+            places,
+            organizations,
+            sentiment,
+            keywords,
+            title_keywords
         )
         formatted_results = [
             dict(zip(
-                ['text_features', 'people', 'places', 'organizations', 'keywords'],
+                ['text_features', 'people', 'places', 'organizations', 'sentimenthq', 'keywords', 'title_keywords'],
                 result
             )) for result in remapped_results
         ]
@@ -211,15 +247,17 @@ class RSSHandler(tornado.web.RequestHandler):
         for metadata, indico_metadata in zip(objs, formatted_results):
             # save to database
             link, title, text = metadata
-            entry = Entry(
-                text=text,
-                title=title,
-                link=link,
-                indico=indico_metadata,
-                group=group,
-                rss_feed=url
-            )
-            session.add(entry)
+            already_exists = session.query(Entry).filter(Entry.link==link).first()
+            if not already_exists:
+                entry = Entry(
+                    text=text,
+                    title=title,
+                    link=link,
+                    indico=indico_metadata,
+                    group=group,
+                    rss_feed=url
+                )
+                session.add(entry)
 
         session.commit()
         session.close()
