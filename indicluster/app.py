@@ -70,9 +70,8 @@ def _read_text_from_url(url):
         article.parse()
         assert article.text
         return article.text
-    except Exception:
-        import traceback
-        traceback.print_exc()
+    except Exception as e:
+        print "Failed to parse %s" % url
         # page doesn't exist or couldn't be parsed
         return ""
 
@@ -189,57 +188,52 @@ class RSSHandler(tornado.web.RequestHandler):
             titles = [entry['title'] for entry in feed['entries']]
         except Exception:
             return json.dumps({
-                'error': "rss feed missing standard field 'title' and/or 'link'"
+                'error': "RSS feed at %s missing standard field 'title' and/or 'link'." % url
             })
 
         text = map(_read_text_from_url, links)
         objs = zip(links, titles, text)
-        # obj[2] --> text
         objs = filter(lambda obj: obj[2].strip() != "", objs)
         text = [item[2] for item in objs] # no longer contains empty strings
         if not text:
-            print "URL", url
-            print "LINKS", links
-            return self.write(json.dumps({}))
+            return self.write(json.dumps({
+                'error': 'No links successfully parsed from rss feed %s.' % url
+            }))
 
-        text_features = []
-        people = []
-        places = []
-        organizations = []
-        keywords = []
-        title_keywords = []
-        sentiment = []
+        FULL_FIELD_LIST = [
+            'text_features',
+            'people',
+            'places',
+            'organizations',
+            'keywords',
+            'title_keywords',
+            'sentiment'
+        ]
+
+        indico = {}
+        for field in FULL_FIELD_LIST:
+            indico[field] = []
+
         for batch in batched(text, 20): 
             try:
+                APIS = ['text_features', 'people', 'places', 'organizations']
                 indico_results = indicoio.analyze_text(
                     batch,
-                    apis=['text_features', 'people', 'places', 'organizations']
+                    apis=APIS
                 )
-                text_features.extend(indico_results['text_features'])
-                people.extend(indico_results['people'])
-                places.extend(indico_results['places'])
-                organizations.extend(indico_results['organizations'])
-                keywords.extend(indicoio.keywords(batch, version=2, top_n=3))
-                title_keywords.extend(indicoio.keywords(batch, version=2, top_n=3))
-                sentiment.extend(indicoio.sentiment(batch))
+                for API in APIS:
+                    indico[API].extend(indico_results[API])
+                indico['keywords'].extend(indicoio.keywords(batch, version=2, top_n=3))
+                indico['title_keywords'].extend(indicoio.keywords(batch, version=2, top_n=3))
+                indico['sentiment'].extend(indicoio.sentiment(batch))
             except Exception as e:
                 import traceback
                 traceback.print_exc()
+                print "An error occurred while retrieving results from the indico API."
 
-        remapped_results = zip(
-            text_features,
-            people,
-            places,
-            organizations,
-            sentiment,
-            keywords,
-            title_keywords
-        )
+        remapped_results = zip(*[indico[field] for field in FULL_FIELD_LIST])
         formatted_results = [
-            dict(zip(
-                ['text_features', 'people', 'places', 'organizations', 'sentimenthq', 'keywords', 'title_keywords'],
-                result
-            )) for result in remapped_results
+            dict(zip(FULL_FIELD_LIST, result)) for result in remapped_results
         ]
 
         session = DBSession()
