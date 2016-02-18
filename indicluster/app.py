@@ -15,6 +15,7 @@ from os.path import abspath, dirname
 from operator import itemgetter
 from random import randint
 from itertools import islice, chain
+from collections import defaultdict
 
 import tornado.ioloop
 import tornado.web
@@ -33,6 +34,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from indicluster.models import Entry, Base
+from indicluster.utils import make_feature_vectors, DBScanClustering
 
 import indicoio
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
@@ -121,7 +123,6 @@ class QueryHandler(tornado.web.RequestHandler):
         query_text_features = indicoio.text_features(query)
 
         entries_with_dups = session.query(Entry).filter_by(group=group).all()
-        print "Number of entries (with duplicates): %d" % len(entries_with_dups)
         entries = []
         entry_links = []
         for entry in entries_with_dups:
@@ -136,29 +137,88 @@ class QueryHandler(tornado.web.RequestHandler):
                        'distance': spatial.distance.cosine(json.loads(entry.indico)['text_features'], query_text_features)}
                       for entry in entries]
 
-        print "Number of entries (without duplicates): %d" % len(entry_dicts)
-
         sorted_entry_dicts = sorted(entry_dicts, key=lambda k: k['distance'])
-        features_matrix = [entry['indico']['text_features'] for entry in sorted_entry_dicts]
 
-        tsne_model = TSNE()
-        new_feats = tsne_model.fit_transform(features_matrix)
+        features_matrix = [entry['text'] for entry in sorted_entry_dicts][:min(500, len(sorted_entry_dicts))]
+        feature_vectors = make_feature_vectors(features_matrix, "tf-idf")
 
-        kmeans = KMeans(n_clusters=8, n_init=20)
-        # kmeans = kmeans.fit(features_matrix)
-        # relevant_feats = features_matrix[:50]
-        # top_entry_dicts = entry_dicts[:50]
-        kmeans.fit(new_feats)
-        if len(new_feats > 50):
-            relevant_feats = new_feats[-50:]
-            top_entry_dicts = entry_dicts[-50:]
-        else:
-            relevant_feats = new_feats
-            top_entry_dicts = top_entry_dicts
-        clusters = kmeans.predict(relevant_feats)
+        for i in [0, .1, .2, .3, .4, .5]:
+            all_clusters = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
+            num_non_noise = sum([1 for i in all_clusters if i >=0])
+            # print len(all_clusters)
+            # print sum([1 for cluster in all_clusters if cluster != -1])
+            # print len(set(all_clusters))
+            # print
+            if sum([1 for cluster in all_clusters if cluster != -1]) > len(all_clusters)/4:
+                break
 
-        sorted_entry_dicts  = [dict(entry, cluster=str(cluster)) for entry, cluster in zip(top_entry_dicts, clusters)]
-        self.write(json.dumps([update_article(article) for article in sorted_entry_dicts]))
+        clusters = []
+        top_entry_dicts = []
+        num_added = 0
+        for i in range(len(all_clusters)):
+            if all_clusters[i] >= 0:
+                clusters.append(all_clusters[i])
+                top_entry_dicts.append(entry_dicts[i])
+                num_added += 1
+                if num_added == 50:
+                    break
+
+        result_dict = {}
+        for entry, cluster in zip(top_entry_dicts, clusters):
+            indico_values = ['keywords', 'title_keywords', 'people', 'places', 'organizations']
+            if cluster not in result_dict.keys():
+                result_dict[cluster] = {}
+                result_dict[cluster]['clusters'] = []
+                for val in indico_values:
+                    result_dict[cluster][val] = defaultdict(int)
+
+            result_dict[cluster]['clusters'].append(entry)
+            for val in indico_values[:2]:
+                for word in entry['indico'][val]:
+                    result_dict[cluster][val][word] += 1
+
+            for val in indico_values[2:]:
+                for word in entry['indico'][val]:
+                    result_dict[cluster][val][word['text']] += 1
+
+        keywords_master_list = []
+        title_keywords_master_list = []
+        for cluster, values in result_dict.items():
+            third_highest = sorted(values['people'].values(), reverse=True)[2]
+            values['people'] = [person for person, number in values['people'].items()
+                                if number >= third_highest]
+            third_highest = sorted(values['organizations'].values(), reverse=True)[2]
+            values['organizations'] = [org for org, number in values['organizations'].items()
+                                if number >= third_highest]
+            third_highest = sorted(values['places'].values(), reverse=True)[2]
+            values['places'] = [place for place, number in values['places'].items()
+                                if number >= third_highest]
+
+            sorted_keywords = sorted(values['keywords'].items(), key=lambda k: k[1])
+            values['keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
+            keywords_master_list.extend([val[0] for val in values['keywords']])
+
+            sorted_keywords = sorted(values['title_keywords'].items(), key=lambda k: k[1])
+            values['title_keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
+            title_keywords_master_list.extend([val[0] for val in values['title_keywords']])
+
+            result_dict[cluster] = values
+
+        print keywords_master_list
+        for cluster, values in result_dict.items():
+            values['keywords'] = [value for value in values['keywords']
+                                  if keywords_master_list.count(value[0]) <= max(len(result_dict)*.35, 1)]
+            values['keywords'] = [val[0] for val in values['keywords']][-min(3, len(values['keywords'])):]
+            print values['keywords']
+
+            values['title_keywords'] = [value for value in values['title_keywords']
+                                  if title_keywords_master_list.count(value[0]) <= max(len(result_dict)*.35, 1)]
+            values['title_keywords'] = [val[0] for val in values['title_keywords']][-min(3, len(values['title_keywords'])):]
+            print values['title_keywords']
+
+            result_dict[cluster] = values
+
+        self.write(json.dumps(result_dict))
 
 
 class RSSHandler(tornado.web.RequestHandler):
@@ -175,7 +235,7 @@ class RSSHandler(tornado.web.RequestHandler):
         group = data.get('group')
         url = data.get("url")
         print "Processing %s: %s" % (group, url)
-        
+
         try:
             feed = feedparser.parse(url, request_headers=REQUEST_HEADERS)
         except Exception:
@@ -214,7 +274,7 @@ class RSSHandler(tornado.web.RequestHandler):
         for field in FULL_FIELD_LIST:
             indico[field] = []
 
-        for batch in batched(text, 20): 
+        for batch in batched(text, 20):
             try:
                 APIS = ['text_features', 'people', 'places', 'organizations']
                 indico_results = indicoio.analyze_text(
