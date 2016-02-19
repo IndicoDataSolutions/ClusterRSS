@@ -187,35 +187,33 @@ class QueryHandler(tornado.web.RequestHandler):
         for cluster, values in result_dict.items():
             third_highest = sorted(values['people'].values(), reverse=True)[min(2, len(values['people'].values())-1)]
             values['people'] = [person for person, number in values['people'].items()
-                                if number >= third_highest]
+                                if number >= third_highest and person != "Shutterstock"]
             third_highest = sorted(values['organizations'].values(), reverse=True)[min(2, len(values['organizations'].values())-1)]
             values['organizations'] = [org for org, number in values['organizations'].items()
-                                if number >= third_highest]
+                                if number >= third_highest and org != "Shutterstock"]
             third_highest = sorted(values['places'].values(), reverse=True)[min(2, len(values['places'].values())-1)]
             values['places'] = [place for place, number in values['places'].items()
-                                if number >= third_highest]
+                                if number >= third_highest and place != "Shutterstock"]
 
             sorted_keywords = sorted(values['keywords'].items(), key=lambda k: k[1])
             values['keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
-            keywords_master_list.extend([val[0] for val in values['keywords']])
+            keywords_master_list.extend([val[0] for val in values['keywords'] if val[0] != "Shutterstock"])
 
             sorted_keywords = sorted(values['title_keywords'].items(), key=lambda k: k[1])
             values['title_keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
-            title_keywords_master_list.extend([val[0] for val in values['title_keywords']])
+            title_keywords_master_list.extend([val[0] for val in values['title_keywords'] if val[0] != "Shutterstock"])
 
             result_dict[cluster] = values
 
-        print keywords_master_list
+
         for cluster, values in result_dict.items():
             values['keywords'] = [value for value in values['keywords']
                                   if keywords_master_list.count(value[0]) <= max(len(result_dict)*.35, 1)]
             values['keywords'] = [val[0] for val in values['keywords']][-min(3, len(values['keywords'])):]
-            print values['keywords']
 
             values['title_keywords'] = [value for value in values['title_keywords']
                                   if title_keywords_master_list.count(value[0]) <= max(len(result_dict)*.35, 1)]
             values['title_keywords'] = [val[0] for val in values['title_keywords']][-min(3, len(values['title_keywords'])):]
-            print values['title_keywords']
 
             result_dict[cluster] = values
 
