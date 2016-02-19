@@ -165,14 +165,15 @@ class QueryHandler(tornado.web.RequestHandler):
 
         result_dict = {}
         for entry, cluster in zip(top_entry_dicts, clusters):
+            entry['cluster'] = cluster
             indico_values = ['keywords', 'title_keywords', 'people', 'places', 'organizations']
             if cluster not in result_dict.keys():
                 result_dict[cluster] = {}
-                result_dict[cluster]['clusters'] = []
+                result_dict[cluster]['articles'] = []
                 for val in indico_values:
                     result_dict[cluster][val] = defaultdict(int)
 
-            result_dict[cluster]['clusters'].append(entry)
+            result_dict[cluster]['articles'].append(entry)
             for val in indico_values[:2]:
                 for word in entry['indico'][val]:
                     result_dict[cluster][val][word] += 1
@@ -184,13 +185,13 @@ class QueryHandler(tornado.web.RequestHandler):
         keywords_master_list = []
         title_keywords_master_list = []
         for cluster, values in result_dict.items():
-            third_highest = sorted(values['people'].values(), reverse=True)[2]
+            third_highest = sorted(values['people'].values(), reverse=True)[min(2, len(values['people'].values())-1)]
             values['people'] = [person for person, number in values['people'].items()
                                 if number >= third_highest]
-            third_highest = sorted(values['organizations'].values(), reverse=True)[2]
+            third_highest = sorted(values['organizations'].values(), reverse=True)[min(2, len(values['organizations'].values())-1)]
             values['organizations'] = [org for org, number in values['organizations'].items()
                                 if number >= third_highest]
-            third_highest = sorted(values['places'].values(), reverse=True)[2]
+            third_highest = sorted(values['places'].values(), reverse=True)[min(2, len(values['places'].values())-1)]
             values['places'] = [place for place, number in values['places'].items()
                                 if number >= third_highest]
 

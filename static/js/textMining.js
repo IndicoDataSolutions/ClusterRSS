@@ -1,18 +1,22 @@
-function groupBy( array , sortingFunction ) {
-  var groups = {};
-  array.forEach(function(obj) {
-    var group = JSON.stringify( sortingFunction(obj) );
-    obj['borderColor'] = "#4169E1";
-    groups[group] = groups[group] || [];
-    groups[group].push(obj);
-  });
+function groupBy( clusters , sortingFunction ) {
+  // var groups = {};
+  // array.forEach(function(obj) {
+  //   var group = JSON.stringify( sortingFunction(obj) );
+  //   obj['borderColor'] = "#4169E1";
+  //   groups[group] = groups[group] || [];
+  //   groups[group].push(obj);
+  // });
 
-  var groupedClusters = Object.keys(groups).map(function(group) {
-    if (groups[group].length > 1) {
-      return {'title': '', 'children': groups[group], 'cluster': groups[group][0].cluster, 'holder': true, 'borderColor': "#A9C7FF"};
-    } else {
-      return {'title': '', 'children': [], 'cluster': groups[group][0].cluster, 'holder': true, 'borderColor': "#A9C7FF"};
-    }
+  var groupedClusters = Object.keys(clusters).map(function(cluster) {
+    var children = (clusters[cluster].articles.length > 1) ? clusters[cluster].articles : [];
+    return {
+      'title': '',
+      'children': children,
+      'info': clusters[cluster],
+      'cluster': cluster,
+      'holder': true,
+      'borderColor': "#A9C7FF"
+    };
   }).sort(function(a, b) { return a.cluster - b.cluster });
 
   return groupedClusters
@@ -34,6 +38,8 @@ $('#query').submit(function(e) {
   $('.spinner-holder').show();
 
   $.post('/text-mining/query', JSON.stringify({'group': group, 'query': query}), function (data) {
+    console.log(JSON.parse(data));
+    
     var dataset = {
       'title': '',
       'children': groupBy(JSON.parse(data), function(obj) {return obj['cluster']}),
@@ -270,14 +276,28 @@ function drawAll(error, dataset) {
   ////////////////////////////////////////////////////////////// 
   /////////////////// Hover functionality ////////////////////// 
   //////////////////////////////////////////////////////////////
+  function uniqueBy(a, key) {
+      var seen = {};
+      return a.filter(function(item) {
+          var k = key(item);
+          return seen.hasOwnProperty(k) ? false : (seen[k] = true);
+      });
+  }
+
+  function showTop (article, indicoSelector) {
+    var uniques = uniqueBy(article.indico[indicoSelector], function(obj) { return obj.text });
+    return uniques.slice(0, 3).map(function(entityMetadata) {
+      return entityMetadata.text;
+    }).join(', ');
+  }
 
   function updateText(node, listOfSelectors, parent) {
     var parent = parent || '';
     for (var i=0; i<listOfSelectors.length; i++) {
       var selector = listOfSelectors[i];
-      
-      if (node[selector].length > 0) {
-        var info = (typeof(node[selector]) == 'string') ? node[selector] : node[selector].join(', ');
+
+      if (node.indico[selector].length > 0) {
+        var info = showTop(node, selector);
 
         $(parent+' .'+selector).html('\
           <p><b>'+selector[0].toUpperCase()+selector.slice(1)+'</b><br>\
@@ -317,15 +337,8 @@ function drawAll(error, dataset) {
       $('#banner').fadeIn();
     }
 
-    var clusterArticles = findCluster(node).children
-    var clusterKeywords = clusterArticles.reduce(function(prev, curr) {
-      return prev.concat(curr.keywords);
-    }, []);
+    var uniqueKeywords = findCluster(node).info.people;
     
-    var uniqueKeywords = clusterKeywords.filter(function(item, pos) {
-      return clusterKeywords.indexOf(item) == pos;
-    })
-
     $('#banner > b').text('Cluster '+node.cluster.toString());
     $('#banner > span').text(uniqueKeywords.join(', '));
   }
