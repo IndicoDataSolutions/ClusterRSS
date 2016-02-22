@@ -34,7 +34,7 @@ from indicluster.models import Entry, Base
 
 import indicoio
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
-DEBUG = os.getenv('DEBUG', True)
+DEBUG = os.getenv('DEBUG', True) != 'False'
 
 POOL = Pool(8)
 REQUEST_HEADERS = {'screensize': '2556x1454', 'uid': 'AAAAAF41ulYaCWhtAR9LWQ=='}
