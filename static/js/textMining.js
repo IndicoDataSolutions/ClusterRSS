@@ -33,10 +33,16 @@ $('#query').submit(function(e) {
   $('.spinner-holder').show();
 
   $.post('/text-mining/query', JSON.stringify({'group': group, 'query': query}), function (data) {
+    data = JSON.parse(data);
+    if (data.error === 'bad query') {
+      alert('It appears we couldn\'t generate useful clusters with your query, please try another.');
+      $('.spinner-holder').hide();
+      return;
+    }
     
     var dataset = {
       'title': '',
-      'children': groupBy(JSON.parse(data), function(obj) {return obj['cluster']}),
+      'children': groupBy(data, function(obj) {return obj['cluster']}),
       'top': true
     };
 
@@ -171,7 +177,7 @@ function drawAll(error, dataset) {
         // On the hidden canvas each rectangle gets a unique color.
         chosenContext.fillStyle = node.color;
       } else {
-        chosenContext.fillStyle = node.children ? colorCircle(node.depth) : bubbleColor(node.indico.sentimenthq);
+        chosenContext.fillStyle = (node.children || node.indico == undefined) ? colorCircle(node.depth) : bubbleColor(node.indico.sentimenthq);
       }// else
 
       chosenContext.lineWidth = 3;

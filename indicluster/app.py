@@ -130,12 +130,18 @@ class QueryHandler(tornado.web.RequestHandler):
                 entry_links.append(entry.link)
                 entries.append(entry)
 
+                
+
         entry_dicts = [{'text': entry.text,
                        'title': entry.title,
                        'link': entry.link,
                        'indico': json.loads(entry.indico),
                        'distance': spatial.distance.cosine(json.loads(entry.indico)['text_features'], query_text_features)}
-                      for entry in entries]
+                      for entry in entries if not math.isnan(spatial.distance.cosine(json.loads(entry.indico)['text_features'], query_text_features))]
+        
+        if not entry_dicts:
+            self.write(json.dumps({'error': 'bad query'}))
+            return
 
         sorted_entry_dicts = sorted(entry_dicts, key=lambda k: k['distance'])
 
@@ -322,6 +328,7 @@ class RSSHandler(tornado.web.RequestHandler):
 application = tornado.web.Application(
     [(r"/text-mining", MainHandler), (r"/text-mining/add-rss-feed", RSSHandler), (r"/text-mining/query", QueryHandler)],
     template_path=abspath(os.path.join(__file__, "../../templates")),
+    static_url_prefix="/text-mining/static/",
     static_path=abspath(os.path.join(__file__, "../../static")),
     cookie_secret="verytemporarycookiesecret",
     debug=DEBUG

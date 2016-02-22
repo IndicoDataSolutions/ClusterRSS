@@ -12,7 +12,7 @@
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
 
     <!-- SPINNER -->
-    <link rel="stylesheet" href="/static/css/loader.css">
+    <link rel="stylesheet" href="{{ static_url('css/loader.css') }}">
     
     <!-- Stylesheet -->
     <style>
@@ -166,11 +166,6 @@
 
       <div id="chart"></div>
     </div>
-    {% if DEBUG %}
     <script src="{{ static_url('js/textMining.js') }}"></script>
-    {% else %}
-    <!-- NGINX routing stuff -->
-    <script src="/text-mining{{ static_url('js/textMining.js') }}"></script>
-    {% end %}
   </body>
 </html>
