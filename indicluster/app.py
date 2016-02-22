@@ -38,7 +38,7 @@ from indicluster.utils import make_feature_vectors, DBScanClustering
 
 import indicoio
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
-DEBUG = os.getenv('DEBUG', True)
+DEBUG = os.getenv('DEBUG', True) != 'False'
 
 DRIVER = webdriver.PhantomJS('/usr/local/bin/phantomjs')
 POOL = Pool(8)
