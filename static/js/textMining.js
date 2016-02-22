@@ -1,18 +1,15 @@
-function groupBy( array , sortingFunction ) {
-  var groups = {};
-  array.forEach(function(obj) {
-    var group = JSON.stringify( sortingFunction(obj) );
-    obj['borderColor'] = "#4169E1";
-    groups[group] = groups[group] || [];
-    groups[group].push(obj);
-  });
+function groupBy( clusters , sortingFunction ) {
 
-  var groupedClusters = Object.keys(groups).map(function(group) {
-    if (groups[group].length > 1) {
-      return {'title': '', 'children': groups[group], 'cluster': groups[group][0].cluster, 'holder': true, 'borderColor': "#A9C7FF"};
-    } else {
-      return {'title': '', 'children': [], 'cluster': groups[group][0].cluster, 'holder': true, 'borderColor': "#A9C7FF"};
-    }
+  var groupedClusters = Object.keys(clusters).map(function(cluster) {
+    var children = (clusters[cluster].articles.length > 1) ? clusters[cluster].articles : [];
+    return {
+      'title': '',
+      'children': children,
+      'info': clusters[cluster],
+      'cluster': cluster,
+      'holder': true,
+      'borderColor': "#A9C7FF"
+    };
   }).sort(function(a, b) { return a.cluster - b.cluster });
 
   return groupedClusters
@@ -31,9 +28,12 @@ $('#query').submit(function(e) {
   var group = $(this).find('[name="group"]').val();
   var query = $(this).find('[name="query"]').val();
 
+  $('#canvas, #hiddenCanvas').remove();
+
   $('.spinner-holder').show();
 
   $.post('/text-mining/query', JSON.stringify({'group': group, 'query': query}), function (data) {
+    
     var dataset = {
       'title': '',
       'children': groupBy(JSON.parse(data), function(obj) {return obj['cluster']}),
@@ -116,6 +116,9 @@ function drawAll(error, dataset) {
     .value(function(d) { return (1 - d.distance) * 100; })
     .sort(function(d) { return d.ID; });
 
+  var bubbleColor = d3.scale.linear()
+    .range(['#FF7A91', '#B3FFB4']);
+
   ////////////////////////////////////////////////////////////// 
   ////////////////// Create Circle Packing /////////////////////
   ////////////////////////////////////////////////////////////// 
@@ -164,12 +167,12 @@ function drawAll(error, dataset) {
           // If we have never drawn the node to the hidden canvas get a new color for it and put it in the dictionary.
           node.color = genColor();
           colToCircle[node.color] = node;
-        }//if
+        }// if
         // On the hidden canvas each rectangle gets a unique color.
         chosenContext.fillStyle = node.color;
       } else {
-        chosenContext.fillStyle = node.children ? colorCircle(node.depth) : "white";
-      }//else
+        chosenContext.fillStyle = node.children ? colorCircle(node.depth) : bubbleColor(node.indico.sentimenthq);
+      }// else
 
       chosenContext.lineWidth = 3;
       if (node.border != true) {
@@ -192,9 +195,9 @@ function drawAll(error, dataset) {
       //There are several options for setting text
       chosenContext.font = "20px Open Sans";
       //textAlign supports: start, end, left, right, center
-      chosenContext.textAlign = "center"
+      chosenContext.textAlign = "center";
       //textBaseline supports: top, hanging, middle, alphabetic, ideographic bottom
-      chosenContext.textBaseline = "middle"
+      chosenContext.textBaseline = "middle";
       chosenContext.fillStyle = "#4169E1";    
     }//for i
     
@@ -211,7 +214,8 @@ function drawAll(error, dataset) {
   }
 
   function slideInfoOut(node) {
-    updateText(node, ['text','keywords', 'people', 'places', 'organizations'], '#info');
+    updateText(node, ['keywords', 'people', 'places', 'organizations'], '#info');
+    $('#info .text').html(node.text);
 
     $('#info .title').find('a').attr('href', node.link);
     $('#info .title').find('a').text(node.title);
@@ -270,14 +274,28 @@ function drawAll(error, dataset) {
   ////////////////////////////////////////////////////////////// 
   /////////////////// Hover functionality ////////////////////// 
   //////////////////////////////////////////////////////////////
+  function uniqueBy(a, key) {
+      var seen = {};
+      return a.filter(function(item) {
+          var k = key(item);
+          return seen.hasOwnProperty(k) ? false : (seen[k] = true);
+      });
+  }
+
+  function showTop (article, indicoSelector) {
+    var uniques = uniqueBy(article.indico[indicoSelector], function(obj) { return obj.text });
+    return uniques.slice(0, 3).map(function(entityMetadata) {
+      return entityMetadata.text;
+    }).join(', ');
+  }
 
   function updateText(node, listOfSelectors, parent) {
     var parent = parent || '';
     for (var i=0; i<listOfSelectors.length; i++) {
       var selector = listOfSelectors[i];
-      
-      if (node[selector].length > 0) {
-        var info = (typeof(node[selector]) == 'string') ? node[selector] : node[selector].join(', ');
+
+      if (node.indico[selector].length > 0) {
+        var info = showTop(node, selector);
 
         $(parent+' .'+selector).html('\
           <p><b>'+selector[0].toUpperCase()+selector.slice(1)+'</b><br>\
@@ -317,17 +335,11 @@ function drawAll(error, dataset) {
       $('#banner').fadeIn();
     }
 
-    var clusterArticles = findCluster(node).children
-    var clusterKeywords = clusterArticles.reduce(function(prev, curr) {
-      return prev.concat(curr.keywords);
-    }, []);
+    var clusterIndico = findCluster(node).info;
+    var info = clusterIndico.people.join(', ')+', '+clusterIndico.places.join(', ');
     
-    var uniqueKeywords = clusterKeywords.filter(function(item, pos) {
-      return clusterKeywords.indexOf(item) == pos;
-    })
-
     $('#banner > b').text('Cluster '+node.cluster.toString());
-    $('#banner > span').text(uniqueKeywords.join(', '));
+    $('#banner > span').text(info);
   }
 
   document.getElementById('tooltip').addEventListener('mouseover', function(e) {

@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+import os.path
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Text, Float, Date, ForeignKey, Enum
@@ -28,7 +29,7 @@ class Entry(Base):
     __tablename__ = 'entries'
 
     id = Column('id', Integer, primary_key=True)
-    text = Column('text', String, unique=True)
+    text = Column('text', String)
     title = Column('title', String)
     link = Column('link', String, unique=True)
     indico = Column('indico', String)
@@ -45,5 +46,5 @@ class Entry(Base):
 
 if __name__ == "__main__":
     # initialize the db
-    engine = create_engine('sqlite:///' + abspath(os.path.join(__file__, "../../text-mining.db")))
+    engine = create_engine('sqlite:///' + os.path.abspath(os.path.join(__file__, "../../text-mining.db")))
     Base.metadata.create_all(engine)
