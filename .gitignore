@@ -64,3 +64,8 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+scripts/elasticsearch*
+*.tar.gz
+
+indicluster/elasticsearch/data

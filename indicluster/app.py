@@ -6,11 +6,8 @@
 
 """
 
-import json
+import os, json, math, traceback
 from time import time
-import math
-import traceback
-import os
 from os.path import abspath, dirname
 from operator import itemgetter
 from random import randint
@@ -19,8 +16,7 @@ from collections import defaultdict
 
 import tornado.ioloop
 import tornado.web
-import requests
-import feedparser
+import requests, feedparser
 from newspaper import Article
 from newspaper.configuration import Configuration
 from selenium import webdriver
@@ -35,11 +31,11 @@ import ipdb
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import indicoio
 
 from indicluster.models import Entry, Base
 from indicluster.utils import make_feature_vectors, DBScanClustering
 
-import indicoio
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
 DEBUG = os.getenv('DEBUG', True) != 'False'
 
@@ -76,7 +72,7 @@ def _read_text_from_url(url):
         assert article.text
         return article.text
     except Exception as e:
-        print "Failed to parse %s" % url
+        traceback.print_exc()
         # page doesn't exist or couldn't be parsed
         return ""
 
@@ -125,7 +121,9 @@ class QueryHandler(tornado.web.RequestHandler):
         query = data.get('query')
         query_text_features = indicoio.text_features(query)
 
+        # Replace this - limit of 100(max)
         entries_with_dups = session.query(Entry).filter_by(group=group).all()
+
         entries = []
         entry_links = []
         for entry in entries_with_dups:
@@ -150,8 +148,9 @@ class QueryHandler(tornado.web.RequestHandler):
         feature_vectors = make_feature_vectors(features_matrix, "tf-idf")
 
         for i in [0, .1, .2, .3, .4, .5]:
-            all_clusters, centers = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
-            relevant_features = feature_vectors[centers]
+            all_clusters = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
+            num_non_noise = sum([1 for i in all_clusters if i >=0])
+
             if sum([1 for cluster in all_clusters if cluster != -1]) > len(all_clusters)/4:
                 break
 
@@ -249,7 +248,6 @@ class RSSHandler(tornado.web.RequestHandler):
         data = json.loads(self.request.body)
         group = data.get('group')
         url = data.get("url")
-        print "Processing %s: %s" % (group, url)
 
         try:
             feed = feedparser.parse(url, request_headers=REQUEST_HEADERS)
