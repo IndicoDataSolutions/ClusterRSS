@@ -35,6 +35,7 @@ import indicoio
 
 from indicluster.models import Entry, Base
 from indicluster.utils import make_feature_vectors, DBScanClustering
+from .elasticsearch.client import ESConnection
 
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
 DEBUG = os.getenv('DEBUG', True) != 'False'
@@ -56,7 +57,6 @@ engine = create_engine('sqlite:///' + abspath(os.path.join(__file__, "../../text
 Base.metadata.bind = engine
 
 DBSession = sessionmaker(bind=engine)
-
 def batched(iterable, size):
     sourceiter = iter(iterable)
     while True:
@@ -115,15 +115,13 @@ class QueryHandler(tornado.web.RequestHandler):
         self.write(json.dumps(groups))
 
     def post(self):
-        session = DBSession()
+        es = ESConnection("localhost:9200")
         data = json.loads(self.request.body)
         group = data.get('group')
         query = data.get('query')
-        query_text_features = indicoio.text_features(query)
 
         # Replace this - limit of 100(max)
-        entries_with_dups = session.query(Entry).filter_by(group=group).all()
-
+        entries_with_dups = es.search(query, limit=100)
         entries = []
         entry_links = []
         for entry in entries_with_dups:
@@ -343,5 +341,5 @@ application = tornado.web.Application(
 )
 
 if __name__ == "__main__":
-    application.listen(8002)
+    application.listen(8003)
     tornado.ioloop.IOLoop.current().start()

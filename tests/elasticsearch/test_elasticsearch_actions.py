@@ -25,20 +25,20 @@ HOST="localhost:9200"
 
 class TestLoadData(unittest.TestCase):
     def test_upload_document(self):
-        es = ESConnection(hosts=[HOST], index=INDEX)
+        es = ESConnection(HOST, index=INDEX)
         successes, errors = es.upload([DOCUMENT])
         self.assertEqual(successes, 1)
         self.assertFalse(errors)
 
     def test_search_document(self):
-        es = ESConnection(hosts=[HOST], index=INDEX)
+        es = ESConnection(HOST, index=INDEX)
         es.upload([DOCUMENT])
         es.flush()
         results = es.search("sample")
         self.assertEqual(len(results), 1)
-    
+
     def test_tags_as_list(self):
-        es = ESConnection(hosts=[HOST], index=INDEX)
+        es = ESConnection(HOST, index=INDEX)
         document = Document(
             title="title",
             text="text",
@@ -54,5 +54,5 @@ class TestLoadData(unittest.TestCase):
         self.assertEqual(results[0]["tags"], ["tag1", "tag2"])
 
     def tearDown(self):
-        es = ESConnection(hosts=[HOST], index=INDEX)
+        es = ESConnection(HOST, index=INDEX)
         es.delete()

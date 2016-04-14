@@ -21,9 +21,9 @@ class ESConnection(object):
 
     Returns an ESConnection object
     """
-    def __init__(self, hosts, index=INDEX, **kwargs):
+    def __init__(self, host, index=INDEX, **kwargs):
         self.index = index
-        self.es = Elasticsearch(hosts=hosts, **kwargs)
+        self.es = Elasticsearch(hosts=[host], **kwargs)
 
     def upload(self, documents):
         """Loads a document object into the Elasticsearch database
@@ -39,7 +39,7 @@ class ESConnection(object):
             doc["_index"] = self.index
         return bulk(self.es, documents)
 
-    def search(self, query, size=100, only_documents=True):
+    def search(self, query, limit=100, only_documents=True):
         """Performs a query on the Elasticsearch connection
         https://www.elastic.co/guide/en/elasticsearch/reference/current/full-text-queries.html
 
@@ -72,7 +72,7 @@ class ESConnection(object):
             u'timed_out': False
         }
         """
-        results = self.es.search(index=self.index, q=query, size=size)
+        results = self.es.search(index=self.index, q=query, size=limit)
         if only_documents:
             return self._format_search(results)
         return results

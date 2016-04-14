@@ -1,11 +1,15 @@
 import os, re, json
 import pickle
 
+import indicoio
 from tqdm import tqdm
 from picklable_itertools.extras import partition_all
+from concurrent.futures import ThreadPoolExecutor
 
 from .client import ESConnection
 from .schema import Document, INDEX
+
+EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 def parse_obj_to_document(obj):
     text = obj.get("content")
@@ -20,27 +24,50 @@ def parse_obj_to_document(obj):
 
     return Document(
         title=title,
-        text=text.decode("ascii", "ignore"),
+        text=text.encode("ascii", "ignore"),
         link=link,
         tags=tags
     )
 
+def add_indico(documents):
+    text = [document["text"] for document in documents]
+    title = [document["title"] for document in documents]
+
+    try:
+        sentiment = EXECUTOR.submit(indicoio.sentiment_hq, text)
+        keywords_text = EXECUTOR.submit(indicoio.keywords, text)
+        keywords_title = EXECUTOR.submit(indicoio.keywords, title)
+        text_features = EXECUTOR.submit(indicoio.text_features, text)
+    except:
+        import traceback; traceback.print_exc()
+
+    sentiment = sentiment.result()
+    keywords_text = keywords_text.result()
+    keywords_title = keywords_title.result()
+    text_features = text_features.result()
+
+    for i in xrange(len(text)):
+        documents[i]["indico"]["sentiment"] = sentiment[i]
+        documents[i]["indico"]["keywords"] = keywords_text[i]
+        documents[i]["indico"]["title_keywords"] = keywords_title[i]
+        documents[i]["indico"]["text_features"] = text_features[i]
+
+    return documents
+
 def upload_data(es, data_file):
+    executor = ThreadPoolExecutor(max_workers=4)
     documents = []
     with open(data_file, 'rb') as f:
-        for line in tqdm(f):
-            documents.append(
-                parse_obj_to_document(
-                    json.loads(line)
-                )
-            )
+        lines = f.readlines()
 
-    for documents in partition_all(200, documents):
-        es.upload(documents)
+    for documents in tqdm(partition_all(5, lines)):
+        documents = map(lambda x: parse_obj_to_document(json.loads(x)), documents)
+        future = executor.submit(add_indico, documents)
+        es.upload(future.result())
 
 if __name__ == "__main__":
     DATA_FILE = os.path.join(
         os.path.dirname(__file__),"data", "stocks_news.ndjson.txt"
     )
-    es = ESConnection(hosts=["localhost:9200"], index=INDEX)
+    es = ESConnection("localhost:9200", index=INDEX)
     upload_data(es, DATA_FILE)
