@@ -38,6 +38,10 @@ def add_indico(documents):
         keywords_text = EXECUTOR.submit(indicoio.keywords, text)
         keywords_title = EXECUTOR.submit(indicoio.keywords, title)
         text_features = EXECUTOR.submit(indicoio.text_features, text)
+        title_features = EXECUTOR.submit(indicoio.text_features, title)
+        people_text = EXECUTOR.submit(indicoio.people, title)
+        organizations_text = EXECUTOR.submit(indicoio.organizations, title)
+        places_text = EXECUTOR.submit(indicoio.places, title)
     except:
         import traceback; traceback.print_exc()
 
@@ -45,12 +49,20 @@ def add_indico(documents):
     keywords_text = keywords_text.result()
     keywords_title = keywords_title.result()
     text_features = text_features.result()
+    title_features = title_features.result()
+    people_text = people_text.result()
+    organizations_text = organizations_text.result()
+    places_text = places_text.result()
 
     for i in xrange(len(text)):
         documents[i]["indico"]["sentiment"] = sentiment[i]
         documents[i]["indico"]["keywords"] = keywords_text[i]
         documents[i]["indico"]["title_keywords"] = keywords_title[i]
         documents[i]["indico"]["text_features"] = text_features[i]
+        documents[i]["indico"]["title_features"] = title_features[i]
+        documents[i]["indico"]["people"] = people_text[i]
+        documents[i]["indico"]["organizations"] = organizations_text[i]
+        documents[i]["indico"]["places"] = places_text[i]
 
     return documents
 
@@ -60,8 +72,10 @@ def upload_data(es, data_file):
     with open(data_file, 'rb') as f:
         lines = f.readlines()
 
-    for documents in tqdm(partition_all(5, lines)):
+    for documents in tqdm(partition_all(20, lines)):
         documents = map(lambda x: parse_obj_to_document(json.loads(x)), documents)
+        documents = filter(lambda doc: doc.link and "Service Unavailable" not in doc.text, documents)
+
         future = executor.submit(add_indico, documents)
         es.upload(future.result())
 

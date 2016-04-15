@@ -55,8 +55,9 @@ feedparser.USER_AGENT = USER_AGENT
 
 engine = create_engine('sqlite:///' + abspath(os.path.join(__file__, "../../text-mining.db")))
 Base.metadata.bind = engine
-
 DBSession = sessionmaker(bind=engine)
+
+INDICO_VALUES = ['keywords', 'title_keywords', 'people', 'places', 'organizations']
 def batched(iterable, size):
     sourceiter = iter(iterable)
     while True:
@@ -120,43 +121,25 @@ class QueryHandler(tornado.web.RequestHandler):
         group = data.get('group')
         query = data.get('query')
 
-        # Replace this - limit of 100(max)
-        entries_with_dups = es.search(query, limit=100)
-        entries = []
-        entry_links = []
-        for entry in entries_with_dups:
-            if not entry.link in entry_links and not 'Service Unavailable' in entry.text:
-                entry_links.append(entry.link)
-                entries.append(entry)
+        entries = es.search(query, limit=500)
 
-        entry_dicts = [{'text': entry.text,
-                       'title': entry.title,
-                       'link': entry.link,
-                       'indico': json.loads(entry.indico),
-                       'distance': spatial.distance.cosine(json.loads(entry.indico)['text_features'], query_text_features)}
-                      for entry in entries if not math.isnan(spatial.distance.cosine(json.loads(entry.indico)['text_features'], query_text_features))]
-
-        if not entry_dicts:
+        if not entries:
             self.write(json.dumps({'error': 'bad query'}))
             return
 
-        sorted_entry_dicts = sorted(entry_dicts, key=lambda k: k['distance'])
-
-        features_matrix = [entry['text'] for entry in sorted_entry_dicts][:min(500, len(sorted_entry_dicts))]
+        features_matrix = [entry['text'] for entry in entries]
         feature_vectors = make_feature_vectors(features_matrix, "tf-idf")
 
         for i in [0, .1, .2, .3, .4, .5]:
-            all_clusters = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
-            num_non_noise = sum([1 for i in all_clusters if i >=0])
-
+            all_clusters, centers = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
             if sum([1 for cluster in all_clusters if cluster != -1]) > len(all_clusters)/4:
                 break
 
         clusters = []
         top_entry_dicts = []
-        num_added = 0
         relevant_features = []
-        for i in range(len(all_clusters)):
+        num_added = 0
+        for i in xrange(len(all_clusters)):
             if all_clusters[i] >= 0:
                 clusters.append(all_clusters[i])
                 top_entry_dicts.append(entry_dicts[i])
@@ -170,7 +153,7 @@ class QueryHandler(tornado.web.RequestHandler):
         for entry, cluster, feature_list in zip(top_entry_dicts, clusters, relevant_features):
             entry['cluster'] = cluster
             cluster_features[cluster].append(feature_list)
-            indico_values = ['keywords', 'title_keywords', 'people', 'places', 'organizations']
+
             if cluster not in result_dict.keys():
                 result_dict[cluster] = {}
                 result_dict[cluster]['articles'] = []
