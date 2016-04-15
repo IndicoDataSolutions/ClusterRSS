@@ -29,6 +29,9 @@ from gevent.pool import Pool
 from scipy import spatial
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
+from scipy.spatial.distance import cdist
+import numpy as np
+import ipdb
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -130,15 +133,13 @@ class QueryHandler(tornado.web.RequestHandler):
                 entry_links.append(entry.link)
                 entries.append(entry)
 
-                
-
         entry_dicts = [{'text': entry.text,
                        'title': entry.title,
                        'link': entry.link,
                        'indico': json.loads(entry.indico),
                        'distance': spatial.distance.cosine(json.loads(entry.indico)['text_features'], query_text_features)}
                       for entry in entries if not math.isnan(spatial.distance.cosine(json.loads(entry.indico)['text_features'], query_text_features))]
-        
+
         if not entry_dicts:
             self.write(json.dumps({'error': 'bad query'}))
             return
@@ -149,29 +150,29 @@ class QueryHandler(tornado.web.RequestHandler):
         feature_vectors = make_feature_vectors(features_matrix, "tf-idf")
 
         for i in [0, .1, .2, .3, .4, .5]:
-            all_clusters = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
-            num_non_noise = sum([1 for i in all_clusters if i >=0])
-            # print len(all_clusters)
-            # print sum([1 for cluster in all_clusters if cluster != -1])
-            # print len(set(all_clusters))
-            # print
+            all_clusters, centers = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
+            relevant_features = feature_vectors[centers]
             if sum([1 for cluster in all_clusters if cluster != -1]) > len(all_clusters)/4:
                 break
 
         clusters = []
         top_entry_dicts = []
         num_added = 0
+        relevant_features = []
         for i in range(len(all_clusters)):
             if all_clusters[i] >= 0:
                 clusters.append(all_clusters[i])
                 top_entry_dicts.append(entry_dicts[i])
+                relevant_features.append(feature_vectors[i])
                 num_added += 1
                 if num_added == 50:
                     break
 
         result_dict = {}
-        for entry, cluster in zip(top_entry_dicts, clusters):
+        cluster_features = defaultdict(list)
+        for entry, cluster, feature_list in zip(top_entry_dicts, clusters, relevant_features):
             entry['cluster'] = cluster
+            cluster_features[cluster].append(feature_list)
             indico_values = ['keywords', 'title_keywords', 'people', 'places', 'organizations']
             if cluster not in result_dict.keys():
                 result_dict[cluster] = {}
@@ -187,6 +188,14 @@ class QueryHandler(tornado.web.RequestHandler):
             for val in indico_values[2:]:
                 for word in entry['indico'][val]:
                     result_dict[cluster][val][word['text']] += 1
+
+
+        cluster_center = {}
+        for cluster, features_list in cluster_features.items():
+            features_list = [np.asarray(el.todense()).flatten() for el in features_list]
+            array_features = np.array(features_list)
+            distance_sums = [sum(dists) for dists in cdist(array_features, array_features, 'euclidean')]
+            cluster_center[cluster] = distance_sums.index(min(distance_sums))
 
         keywords_master_list = []
         title_keywords_master_list = []
@@ -220,6 +229,7 @@ class QueryHandler(tornado.web.RequestHandler):
             values['title_keywords'] = [value for value in values['title_keywords']
                                   if title_keywords_master_list.count(value[0]) <= max(len(result_dict)*.35, 1)]
             values['title_keywords'] = [val[0] for val in values['title_keywords']][-min(3, len(values['title_keywords'])):]
+            values['cluster_title'] = values['articles'][cluster_center[cluster]]
 
             result_dict[cluster] = values
 

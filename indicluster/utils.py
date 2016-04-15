@@ -33,7 +33,11 @@ def make_feature_vectors(article_list, style):
 
 def DBScanClustering(feature_vectors, **kwargs):
     clusterer = DBSCAN(**kwargs)
-    return clusterer.fit_predict(feature_vectors)
+    fitted_response = clusterer.fit_predict(feature_vectors)
+    centers = clusterer.core_sample_indices_
+    print 'centers'
+    print centers
+    return fitted_response, centers
 
 def parse_float(string):
     return float(string.strip('%'))/100
