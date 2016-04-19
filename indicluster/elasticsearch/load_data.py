@@ -8,8 +8,15 @@ from concurrent.futures import ThreadPoolExecutor
 
 from .client import ESConnection
 from .schema import Document, INDEX
+from .summary import Summary
+from .words import cross_reference
 
 EXECUTOR = ThreadPoolExecutor(max_workers=4)
+
+ENGLISH_SUMMARIZER = Summary(language="english")
+FINANCIAL_WORDS = pickle.load(os.path.join(
+    os.path.dirname(__file__), "data", "financial_words.pkl"
+))
 
 def parse_obj_to_document(obj):
     text = obj.get("content")
@@ -21,12 +28,17 @@ def parse_obj_to_document(obj):
     text = re.sub(r"<[^>]*>", "", text)
     text = re.sub(r"[\s]+", " ", text)
     text = re.sub(r"[[\w\-]*\s*[\.[\w\-]*\s*]*]*\s*{[^}]*}", "", text)
+    text = text.encode("ascii", "ignore").decode("ascii", "ignore")
+    characters = text = re.sub(r"[^A-Za-z0-9 ]", "", text)
 
     return Document(
         title=title,
-        text=text.encode("ascii", "ignore"),
+        text=text,
         link=link,
-        tags=tags
+        tags=tags,
+        length=len(characters),
+        summary=ENGLISH_SUMMARIZER.parse(text),
+        financial=cross_reference(characters, FINANCIAL_WORDS)
     )
 
 def add_indico(documents):

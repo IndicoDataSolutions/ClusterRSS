@@ -10,3 +10,4 @@ SQLAlchemy==1.0.11
 tornado==4.3
 elasticsearch==2.3.0
 picklable-itertools==0.1.1
+sumy==0.4.1
