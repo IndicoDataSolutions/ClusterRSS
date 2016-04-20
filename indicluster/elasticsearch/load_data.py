@@ -56,6 +56,7 @@ def add_indico(documents):
         places_text = EXECUTOR.submit(indicoio.places, title)
     except:
         import traceback; traceback.print_exc()
+        return add_indico(documents[:len(documents)]) + add_indico(documents[len(documents):])
 
     sentiment = sentiment.result()
     keywords_text = keywords_text.result()
