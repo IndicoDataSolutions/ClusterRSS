@@ -14,9 +14,9 @@ from .words import cross_reference
 EXECUTOR = ThreadPoolExecutor(max_workers=4)
 
 ENGLISH_SUMMARIZER = Summary(language="english")
-FINANCIAL_WORDS = pickle.load(os.path.join(
-    os.path.dirname(__file__), "data", "financial_words.pkl"
-))
+FINANCIAL_WORDS = set(json.loads(open(os.path.join(
+    os.path.dirname(__file__), "data", "financial_keywords.json"
+)).read()))
 
 def parse_obj_to_document(obj):
     text = obj.get("content")
@@ -37,7 +37,7 @@ def parse_obj_to_document(obj):
         link=link,
         tags=tags,
         length=len(characters),
-        summary=ENGLISH_SUMMARIZER.parse(text),
+        summary=ENGLISH_SUMMARIZER.parse(text, sentences=3),
         financial=cross_reference(characters, FINANCIAL_WORDS)
     )
 
@@ -87,7 +87,6 @@ def upload_data(es, data_file):
     for documents in tqdm(partition_all(20, lines)):
         documents = map(lambda x: parse_obj_to_document(json.loads(x)), documents)
         documents = filter(lambda doc: doc.link and "Service Unavailable" not in doc.text, documents)
-
         future = executor.submit(add_indico, documents)
         es.upload(future.result())
 
