@@ -19,10 +19,7 @@
       body { 
         margin: 0px;
         text-align: center; 
-        background: white;
-      }
-      .content_wrapper {
-        background: white;
+        background: #555;
       }
 
       a {
@@ -34,14 +31,12 @@
         position: absolute;
         z-index: 9001;
         display: none;
-        padding: 20px 15px;
+        padding: 8px 14px;
         border-radius: 3px;
         border: 2px solid cornflowerblue;
         background: rgba(255, 255, 255, 0.8);
         text-align: left;
         width: 300px;
-        transition:300ms all linear;
-        -webkit-transition:300ms all linear;
       }
         #tooltip > p > div > p {
           padding:10px;
@@ -50,7 +45,7 @@
       #banner {
         position: absolute;
         z-index: 9000;
-        top: 0px;
+        top: 40px;
         left: 0px;
         right: 0px;
         background-color: rgba(230,230,230,0.6);
@@ -61,11 +56,13 @@
       }
 
       #query {
-        padding: 20px;
-        text-align: center;
+        padding: 12px;
+        padding-left: 30px;
+        text-align: left;
         font-size: 18px;
         position: fixed;
-        bottom: 0px;
+        background: white;
+        top: 0px;
         left: 0px;
         right: 0px;
         z-index: 9999;
@@ -121,8 +118,8 @@
       }
     </style>
   </head>
-  <body>
-    <div id="app">
+  <body id="app">
+    <div>
       <form id="query" action="">
         RSS Topic
         <select name="group" id="">
@@ -142,7 +139,7 @@
       </div>
 
       <div id="banner">
-        <b></b> - <strong>Key subjects</strong>: <span></span>
+        <strong>Cluster Keywords</strong>: <span></span>
       </div>
 
       <div id="info">
@@ -166,6 +163,8 @@
 
       <div id="chart"></div>
     </div>
+    <link rel="stylesheet" href="{{ static_url('css/font.css') }}"></link>
+    <script src="{{ static_url('js/polyfills.js') }}"></script>
     <script src="{{ static_url('js/textMining.js') }}"></script>
   </body>
 </html>
