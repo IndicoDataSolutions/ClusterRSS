@@ -7,7 +7,7 @@ import os
 
 if __name__ == "__main__":
     setup(
-        name = "indicluster",
+        name = "cluster",
         packages = find_packages(),
         install_requires = open(
             os.path.join(

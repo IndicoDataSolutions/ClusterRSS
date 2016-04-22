@@ -26,8 +26,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import indicoio
 
-from indicluster.models import Entry, Base
-from indicluster.utils import make_feature_vectors, DBScanClustering
+from cluster.models import Entry, Base
+from cluster.utils import make_feature_vectors, DBScanClustering
 from .search.client import ESConnection
 
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
@@ -317,5 +317,5 @@ application = tornado.web.Application(
 )
 
 if __name__ == "__main__":
-    application.listen(8003)
+    application.listen(8004)
     tornado.ioloop.IOLoop.current().start()

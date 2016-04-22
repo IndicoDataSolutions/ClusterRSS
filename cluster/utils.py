@@ -29,8 +29,6 @@ def DBScanClustering(feature_vectors, **kwargs):
     clusterer = DBSCAN(**kwargs)
     fitted_response = clusterer.fit_predict(feature_vectors)
     centers = clusterer.core_sample_indices_
-    print 'centers'
-    print centers
     return fitted_response, centers
 
 def parse_float(string):
