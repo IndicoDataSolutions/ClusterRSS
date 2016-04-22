@@ -6,6 +6,8 @@ from sklearn.cluster import DBSCAN
 import numpy as np
 from scipy.spatial.distance import cdist
 
+from .errors import ClusterError
+
 def SnowballNumberTokenizer(doc):
     stemmer = SnowballStemmer('english')
     pattern = re.compile(u'(?u)\\b\\w\\w+\\b')
@@ -31,9 +33,9 @@ def DBScanClustering(feature_vectors, **kwargs):
     clusterer = DBSCAN(**kwargs)
     fitted_response = clusterer.fit_predict(feature_vectors)
     components = clusterer.components_
-
+    if not components.shape[0]:
+        return fitted_response, [1] * feature_vectors.shape[0]
     similarities = np.max(feature_vectors.dot(components.T).todense(), axis = 1)
-
     return fitted_response, similarities.tolist()
 
 def parse_float(string):

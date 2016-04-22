@@ -29,6 +29,7 @@ import indicoio
 from cluster.models import Entry, Base
 from cluster.utils import make_feature_vectors, DBScanClustering, highest_scores
 from .search.client import ESConnection
+from .errors import ClusterError
 
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
 DEBUG = os.getenv('DEBUG', True) != 'False'
@@ -109,98 +110,106 @@ class QueryHandler(tornado.web.RequestHandler):
         self.write(json.dumps(groups))
 
     def post(self):
-        es = ESConnection("localhost:9200")
-        data = json.loads(self.request.body)
-        group = data.get('group')
-        query = data.get('query')
+        try:
+            es = ESConnection("localhost:9200")
+            data = json.loads(self.request.body)
+            group = data.get('group')
+            query = data.get('query')
 
-        entries = es.search(query, limit=500)
+            entries = es.search(query, limit=500)
 
-        if not entries:
-            self.write(json.dumps({'error': 'bad query'}))
-            return
+            if not entries:
+                self.write(json.dumps({'error': 'bad query'}))
+                return
 
-        features_matrix = [entry['text'] for entry in entries]
-        feature_vectors = make_feature_vectors(features_matrix, "tf-idf")
+            features_matrix = [entry['text'] for entry in entries]
+            feature_vectors = make_feature_vectors(features_matrix, "tf-idf")
 
-        for i in [0, .1, .2, .3, .4, .5]:
-            all_clusters, all_similarities = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
-            if sum([1 for cluster in all_clusters if cluster != -1]) > len(all_clusters)/4:
-                break
+            if not feature_vectors.shape[0]:
+                self.write(json.dumps({
+                    "error": "empty results"
+                }))
 
-        clusters = []
-        top_entry_dicts = []
-        relevant_features = []
-        similarities = []
-        num_added = 0
-        for i in xrange(len(all_clusters)):
-            if all_clusters[i] >= 0:
-                clusters.append(all_clusters[i])
-                top_entry_dicts.append(entries[i])
-                relevant_features.append(feature_vectors[i])
-                similarities.append(all_similarities[i])
-                num_added += 1
-                if num_added == 50:
+            for i in [0, .1, .2, .3, .4, .5]:
+                all_clusters, all_similarities = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
+                if sum([1 for cluster in all_clusters if cluster != -1]) > len(all_clusters)/4:
                     break
 
-        result_dict = {}
-        cluster_features = defaultdict(list)
-        for entry, cluster, feature_list, distance in zip(top_entry_dicts, clusters, relevant_features, similarities):
-            entry['cluster'] = cluster
-            entry["distance"] = distance
-            cluster_features[cluster].append(feature_list)
+            clusters = []
+            top_entry_dicts = []
+            relevant_features = []
+            similarities = []
+            num_added = 0
+            for i in xrange(len(all_clusters)):
+                if all_clusters[i] >= 0:
+                    clusters.append(all_clusters[i])
+                    top_entry_dicts.append(entries[i])
+                    relevant_features.append(feature_vectors[i])
+                    similarities.append(all_similarities[i])
+                    num_added += 1
+                    if num_added == 50:
+                        break
 
-            if cluster not in result_dict.keys():
-                result_dict[cluster] = {}
-                result_dict[cluster]['articles'] = []
-                for val in INDICO_VALUES:
-                    result_dict[cluster][val] = defaultdict(int)
+            result_dict = {}
+            cluster_features = defaultdict(list)
+            for entry, cluster, feature_list, distance in zip(top_entry_dicts, clusters, relevant_features, similarities):
+                entry['cluster'] = cluster
+                entry["distance"] = distance
+                cluster_features[cluster].append(feature_list)
 
-            result_dict[cluster]['articles'].append(entry)
-            for val in INDICO_VALUES[:2]:
-                for word in entry['indico'][val]:
-                    result_dict[cluster][val][word] += 1
+                if cluster not in result_dict.keys():
+                    result_dict[cluster] = {}
+                    result_dict[cluster]['articles'] = []
+                    for val in INDICO_VALUES:
+                        result_dict[cluster][val] = defaultdict(int)
 
-            for val in INDICO_VALUES[2:]:
-                for word in entry['indico'][val]:
-                    result_dict[cluster][val][word['text']] += 1
+                result_dict[cluster]['articles'].append(entry)
+                for val in INDICO_VALUES[:2]:
+                    for word in entry['indico'][val]:
+                        result_dict[cluster][val][word] += 1
+
+                for val in INDICO_VALUES[2:]:
+                    for word in entry['indico'][val]:
+                        result_dict[cluster][val][word['text']] += 1
 
 
-        cluster_center = {}
-        for cluster, features_list in cluster_features.items():
-            features_list = [np.asarray(el.todense()).flatten() for el in features_list]
-            array_features = np.array(features_list)
-            distance_sums = [sum(dists) for dists in cdist(array_features, array_features, 'euclidean')]
-            cluster_center[cluster] = distance_sums.index(min(distance_sums))
+            cluster_center = {}
+            for cluster, features_list in cluster_features.items():
+                features_list = [np.asarray(el.todense()).flatten() for el in features_list]
+                array_features = np.array(features_list)
+                distance_sums = [sum(dists) for dists in cdist(array_features, array_features, 'euclidean')]
+                cluster_center[cluster] = distance_sums.index(min(distance_sums))
 
-        keywords_master_list = []
-        title_keywords_master_list = []
-        for cluster, values in result_dict.items():
-            values['people'] = highest_scores(values["people"], 3, ["Shutterstock"])
-            values['organizations'] = highest_scores(values["organizations"], 3, ["Shutterstock"])
-            values['places'] = highest_scores(values["places"], 3, ["Shutterstock"])
+            keywords_master_list = []
+            title_keywords_master_list = []
+            for cluster, values in result_dict.items():
+                values['people'] = highest_scores(values["people"], 3, ["Shutterstock"])
+                values['organizations'] = highest_scores(values["organizations"], 3, ["Shutterstock"])
+                values['places'] = highest_scores(values["places"], 3, ["Shutterstock"])
 
-            sorted_keywords = sorted(values['keywords'].items(), key=lambda k: k[1])
-            values['keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
-            keywords_master_list.extend([val[0] for val in values['keywords'] if val[0] != "Shutterstock"])
+                sorted_keywords = sorted(values['keywords'].items(), key=lambda k: k[1])
+                values['keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
+                keywords_master_list.extend([val[0] for val in values['keywords'] if val[0] != "Shutterstock"])
 
-            sorted_keywords = sorted(values['title_keywords'].items(), key=lambda k: k[1])
-            values['title_keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
-            title_keywords_master_list.extend([val[0] for val in values['title_keywords'] if val[0] != "Shutterstock"])
+                sorted_keywords = sorted(values['title_keywords'].items(), key=lambda k: k[1])
+                values['title_keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
+                title_keywords_master_list.extend([val[0] for val in values['title_keywords'] if val[0] != "Shutterstock"])
 
-            result_dict[cluster] = values
+                result_dict[cluster] = values
 
-        for cluster, values in result_dict.items():
-            values['keywords'] = [value for value in values['keywords']
-                                  if keywords_master_list.count(value[0]) <= max(len(result_dict)*.35, 1)]
-            values['keywords'] = [val[0] for val in values['keywords']][-min(3, len(values['keywords'])):]
+            for cluster, values in result_dict.items():
+                values['keywords'] = [value for value in values['keywords']
+                                      if keywords_master_list.count(value[0]) <= max(len(result_dict)*.35, 1)]
+                values['keywords'] = [val[0] for val in values['keywords']][-min(3, len(values['keywords'])):]
 
-            values['title_keywords'] = [value for value in values['title_keywords']
-                                  if title_keywords_master_list.count(value[0]) <= max(len(result_dict)*.35, 1)]
-            values['title_keywords'] = [val[0] for val in values['title_keywords']][-min(3, len(values['title_keywords'])):]
-            values['cluster_title'] = values['articles'][cluster_center[cluster]]
+                values['title_keywords'] = [value for value in values['title_keywords']
+                                      if title_keywords_master_list.count(value[0]) <= max(len(result_dict)*.35, 1)]
+                values['title_keywords'] = [val[0] for val in values['title_keywords']][-min(3, len(values['title_keywords'])):]
+                values['cluster_title'] = values['articles'][cluster_center[cluster]]
 
-            result_dict[cluster] = values
+                result_dict[cluster] = values
+        except ClusterError as e:
+            self.write(json.dumps({"error": str(e)}))
 
         self.write(json.dumps(result_dict))
 
