@@ -1,13 +1,7 @@
-import json
 import re
 
-from sklearn.cluster import KMeans
-from sklearn.manifold import TSNE
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.lda import LDA
-from nltk.corpus import stopwords
 from nltk.stem.snowball import SnowballStemmer
-from sklearn.cluster.bicluster import SpectralCoclustering
 from sklearn.cluster import DBSCAN
 
 def SnowballNumberTokenizer(doc):

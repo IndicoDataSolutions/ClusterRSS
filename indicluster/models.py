@@ -1,9 +1,8 @@
-from datetime import datetime
 import json
 import os.path
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, Text, Float, Date, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String
 from sqlalchemy import create_engine
 
 Base = declarative_base()

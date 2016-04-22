@@ -68,4 +68,4 @@ target/
 scripts/elasticsearch*
 *.tar.gz
 
-indicluster/elasticsearch/data
+indicluster/search/data

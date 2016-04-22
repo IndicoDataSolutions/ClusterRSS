@@ -6,28 +6,21 @@
 
 """
 
-import os, json, math, traceback
-from time import time
-from os.path import abspath, dirname
-from operator import itemgetter
-from random import randint
+import os, json, traceback
+from os.path import abspath
 from itertools import islice, chain
 from collections import defaultdict
 
 import tornado.ioloop
 import tornado.web
-import requests, feedparser
 from newspaper import Article
 from newspaper.configuration import Configuration
+import feedparser
 from selenium import webdriver
 
 from gevent.pool import Pool
-from scipy import spatial
-from sklearn.cluster import KMeans
-from sklearn.manifold import TSNE
 from scipy.spatial.distance import cdist
 import numpy as np
-import ipdb
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -35,7 +28,7 @@ import indicoio
 
 from indicluster.models import Entry, Base
 from indicluster.utils import make_feature_vectors, DBScanClustering
-from .elasticsearch.client import ESConnection
+from .search.client import ESConnection
 
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
 DEBUG = os.getenv('DEBUG', True) != 'False'
@@ -142,7 +135,7 @@ class QueryHandler(tornado.web.RequestHandler):
         for i in xrange(len(all_clusters)):
             if all_clusters[i] >= 0:
                 clusters.append(all_clusters[i])
-                top_entry_dicts.append(entry_dicts[i])
+                top_entry_dicts.append(entries[i])
                 relevant_features.append(feature_vectors[i])
                 num_added += 1
                 if num_added == 50:
@@ -157,15 +150,15 @@ class QueryHandler(tornado.web.RequestHandler):
             if cluster not in result_dict.keys():
                 result_dict[cluster] = {}
                 result_dict[cluster]['articles'] = []
-                for val in indico_values:
+                for val in INDICO_VALUES:
                     result_dict[cluster][val] = defaultdict(int)
 
             result_dict[cluster]['articles'].append(entry)
-            for val in indico_values[:2]:
+            for val in INDICO_VALUES[:2]:
                 for word in entry['indico'][val]:
                     result_dict[cluster][val][word] += 1
 
-            for val in indico_values[2:]:
+            for val in INDICO_VALUES[2:]:
                 for word in entry['indico'][val]:
                     result_dict[cluster][val][word['text']] += 1
 

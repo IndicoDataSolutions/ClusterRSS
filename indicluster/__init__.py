@@ -1,1 +1,1 @@
-from .elasticsearch.client import ESConnection
+from .search.client import ESConnection

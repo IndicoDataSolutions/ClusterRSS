@@ -1,9 +1,6 @@
 import os, unittest
-import urllib3
-from subprocess import Popen
 
 import indicluster
-import requests
 from indicluster.elasticsearch.schema import Document
 from indicluster.elasticsearch.client import ESConnection
 

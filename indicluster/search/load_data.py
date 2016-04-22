@@ -1,5 +1,4 @@
 import os, re, json
-import pickle
 
 import indicoio
 from tqdm import tqdm
