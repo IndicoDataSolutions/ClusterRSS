@@ -3,6 +3,8 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from nltk.stem.snowball import SnowballStemmer
 from sklearn.cluster import DBSCAN
+import numpy as np
+from scipy.spatial.distance import cdist
 
 def SnowballNumberTokenizer(doc):
     stemmer = SnowballStemmer('english')
@@ -28,8 +30,11 @@ def make_feature_vectors(article_list, style):
 def DBScanClustering(feature_vectors, **kwargs):
     clusterer = DBSCAN(**kwargs)
     fitted_response = clusterer.fit_predict(feature_vectors)
-    centers = clusterer.core_sample_indices_
-    return fitted_response, centers
+    components = clusterer.components_
+
+    similarities = np.max(feature_vectors.dot(components.T).todense(), axis = 1)
+
+    return fitted_response, similarities.tolist()
 
 def parse_float(string):
     return float(string.strip('%'))/100

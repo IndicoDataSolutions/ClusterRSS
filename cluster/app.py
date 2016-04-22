@@ -124,27 +124,30 @@ class QueryHandler(tornado.web.RequestHandler):
         feature_vectors = make_feature_vectors(features_matrix, "tf-idf")
 
         for i in [0, .1, .2, .3, .4, .5]:
-            all_clusters, centers = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
+            all_clusters, all_similarities = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
             if sum([1 for cluster in all_clusters if cluster != -1]) > len(all_clusters)/4:
                 break
 
         clusters = []
         top_entry_dicts = []
         relevant_features = []
+        similarities = []
         num_added = 0
         for i in xrange(len(all_clusters)):
             if all_clusters[i] >= 0:
                 clusters.append(all_clusters[i])
                 top_entry_dicts.append(entries[i])
                 relevant_features.append(feature_vectors[i])
+                similarities.append(all_similarities[i])
                 num_added += 1
                 if num_added == 50:
                     break
 
         result_dict = {}
         cluster_features = defaultdict(list)
-        for entry, cluster, feature_list in zip(top_entry_dicts, clusters, relevant_features):
+        for entry, cluster, feature_list, distance in zip(top_entry_dicts, clusters, relevant_features, similarities):
             entry['cluster'] = cluster
+            entry["distance"] = distance
             cluster_features[cluster].append(feature_list)
 
             if cluster not in result_dict.keys():
