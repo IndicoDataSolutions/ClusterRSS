@@ -26,12 +26,13 @@ $('#query').submit(function(e) {
   e.preventDefault();
 
   var group = $(this).find('[name="group"]').val();
+  var query = $(this).find('[name="query"]').val();
 
   $('#canvas, #hiddenCanvas').remove();
 
   $('.spinner-holder').show();
 
-  $.post('/text-mining/query', JSON.stringify({'group': group}), function (data) {
+  $.post('/text-mining/query', JSON.stringify({'group': group, 'query': query}), function (data) {
     data = JSON.parse(data);
     if (data.error === 'bad query') {
       alert('It appears we couldn\'t generate useful clusters with your query, please try another.');
@@ -52,8 +53,6 @@ $('#query').submit(function(e) {
 
   return false;
 });
-
-$('#query').submit()
 
   
 function drawAll(error, dataset) {
