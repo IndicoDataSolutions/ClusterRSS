@@ -33,3 +33,7 @@ def DBScanClustering(feature_vectors, **kwargs):
 
 def parse_float(string):
     return float(string.strip('%'))/100
+
+def highest_scores(values, top_n, exclude):
+    results = filter(lambda x: x[0] not in exclude, sorted(values.items(), key=lambda x: x[1], reverse=True)[:top_n])
+    return dict(results).keys()

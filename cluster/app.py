@@ -27,7 +27,7 @@ from sqlalchemy.orm import sessionmaker
 import indicoio
 
 from cluster.models import Entry, Base
-from cluster.utils import make_feature_vectors, DBScanClustering
+from cluster.utils import make_feature_vectors, DBScanClustering, highest_scores
 from .search.client import ESConnection
 
 indicoio.config.api_key = os.getenv('INDICO_API_KEY')
@@ -173,15 +173,9 @@ class QueryHandler(tornado.web.RequestHandler):
         keywords_master_list = []
         title_keywords_master_list = []
         for cluster, values in result_dict.items():
-            third_highest = sorted(values['people'].values(), reverse=True)[min(2, len(values['people'].values())-1)]
-            values['people'] = [person for person, number in values['people'].items()
-                                if number >= third_highest and person != "Shutterstock"]
-            third_highest = sorted(values['organizations'].values(), reverse=True)[min(2, len(values['organizations'].values())-1)]
-            values['organizations'] = [org for org, number in values['organizations'].items()
-                                if number >= third_highest and org != "Shutterstock"]
-            third_highest = sorted(values['places'].values(), reverse=True)[min(2, len(values['places'].values())-1)]
-            values['places'] = [place for place, number in values['places'].items()
-                                if number >= third_highest and place != "Shutterstock"]
+            values['people'] = highest_scores(values["people"], 3, ["Shutterstock"])
+            values['organizations'] = highest_scores(values["organizations"], 3, ["Shutterstock"])
+            values['places'] = highest_scores(values["places"], 3, ["Shutterstock"])
 
             sorted_keywords = sorted(values['keywords'].items(), key=lambda k: k[1])
             values['keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
@@ -192,7 +186,6 @@ class QueryHandler(tornado.web.RequestHandler):
             title_keywords_master_list.extend([val[0] for val in values['title_keywords'] if val[0] != "Shutterstock"])
 
             result_dict[cluster] = values
-
 
         for cluster, values in result_dict.items():
             values['keywords'] = [value for value in values['keywords']
