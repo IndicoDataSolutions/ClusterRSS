@@ -1,6 +1,6 @@
 text-mining.db
 venv/
-
+index.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

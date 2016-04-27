@@ -100,7 +100,7 @@ function drawAll(error, dataset) {
 
   var colorCircle = d3.scale.ordinal()
       .domain([0,1,2,3])
-      .range(['#555','#4c73dd','#4c4c4c','#1c1c1c']);
+      .range(['#333','#4c73dd','#4c4c4c','#1c1c1c']);
 
   var diameter = Math.min(width*0.9, height*0.9),
     radius = diameter / 2;
@@ -137,8 +137,15 @@ function drawAll(error, dataset) {
     focus = root;
   
   for (var i=0; i<nodes.length; i++) {
-    if (nodes[i].holder) {
-      holders.push(nodes[i]);
+    var node = nodes[i]
+    if (node.holder) {
+      holders.push(node);
+    }
+    node.border = false;
+    node.borderColor = (node.top == true)? 'rgba(255,255,255,0)' : 'rgba(255,255,255,0.75)';
+    if (node.selected || node.holder) {
+      node.border = true;
+      node.borderColor = (node.selected) ? '#4C73DD' : 'rgba(255,255,255,0.75)';
     }
   }
   ////////////////////////////////////////////////////////////// 
@@ -147,6 +154,10 @@ function drawAll(error, dataset) {
   
   var cWidth = canvas.attr("width");
   var cHeight = canvas.attr("height");
+  var colors = d3.scale.ordinal()
+    .domain([0, holders.length])
+    .range(["#4C377C", "#B45CCF"]);
+    // .range(["#967BDD", "#0BE161", "#5A89ED", "#239773", "#E45661", "#E44974", "#A478DE", "#6183E4", "#CC4EED", "#703987"]);
   var nodeCount = nodes.length;
   var drawText = true;
   var mouseX = 0,
@@ -237,7 +248,7 @@ function drawAll(error, dataset) {
   function drawCanvas(chosenContext, hidden) {
 
     //Clear canvas
-    chosenContext.fillStyle = "#555";
+    chosenContext.fillStyle = "#333";
     chosenContext.rect(0,0,cWidth,cHeight);
     chosenContext.fill();
     
@@ -257,10 +268,10 @@ function drawAll(error, dataset) {
         // On the hidden canvas each rectangle gets a unique color.
         chosenContext.fillStyle = node.color;
       } else {
-        chosenContext.fillStyle = (node.children || node.indico == undefined) ? colorCircle(node.depth) : bubbleColor(node.indico.sentimenthq);
+        chosenContext.fillStyle = (node.holder || node.top) ? '#333' : colors(node.distance[0]);
       }// else
 
-      chosenContext.lineWidth = 3;
+      chosenContext.lineWidth = 2;
       if (node.border != true || node.top == true) {
         chosenContext.strokeStyle = "rgba(255,255,255,0)";
       } else if (node.holder && node.border != true) {
@@ -314,17 +325,19 @@ function drawAll(error, dataset) {
 
   function slideInfoOut(node) {
     updateText(node, ['keywords', 'people', 'places', 'organizations'], '#info');
-    $('#info .text').html(node.text);
+    $('#info .text p').html(node.text);
 
     $('#info .title').find('a').attr('href', node.link);
     $('#info .title').find('a').text(node.title);
 
+    $('#banner').css({'right': '400px'});
     $('#info').css({'right': '0px'});
     $('#chart').css({'right': '200px'});
     updateSize();
   }
 
   function slideInfoIn() {
+    $('#banner').css({'right': '0px'});
     $('#info').css({'right': '-400px'});
     $('#chart').css({'right': '0px'});
     updateSize();
@@ -350,24 +363,26 @@ function drawAll(error, dataset) {
       
       if (node.selected) {
         node.border = false;
-        node.borderColor = '#b05ecc';
+        node.borderColor = '#4C73DD';
         node.selected = false;
       }
     }
 
     if (currentNode) {
       var cluster = findCluster(currentNode);
-      if (cluster && currentNode.top !== true) {
+      if (cluster && !currentNode.top) {
         zoomToCanvas(cluster);
-        if (currentNode.holder !== true) slideInfoOut(currentNode);
+        if (!currentNode.holder) slideInfoOut(currentNode);
       } else {
         zoomToCanvas(root);
         slideInfoIn();
       }
-
       currentNode.selected = true;
-    }//if
-
+    } else {
+      zoomToCanvas(root);
+      slideInfoIn();
+    }
+  
   });
 
   ////////////////////////////////////////////////////////////// 
@@ -396,9 +411,9 @@ function drawAll(error, dataset) {
       if (node.indico[selector].length > 0) {
         var info = showTop(node, selector);
 
-        $(parent+' .'+selector).html('\
-          <p><b>'+selector[0].toUpperCase()+selector.slice(1)+'</b><br>\
-          '+info+'</p>')
+        $(parent+' .'+selector).html('<p>\
+          <b>'+selector[0].toUpperCase()+selector.slice(1)+'</b> '+info+'<br><br>\
+        </p>')
       } else {
         $(parent+' .'+selector).html('')
       }
@@ -466,17 +481,17 @@ function drawAll(error, dataset) {
       
       // We actually only need to draw the hidden canvas when there is an interaction. 
       // This sketch can draw it on each loop, but that is only for demonstration. 
-      drawCanvas(hiddenContext, true);
-
       for (var i=0; i<nodeCount; i++) {
         var node = nodes[i]
         node.border = false;
         node.borderColor = (node.top == true)? 'rgba(255,255,255,0)' : 'rgba(255,255,255,0.75)';
         if (node.selected || node.holder) {
           node.border = true;
-          node.borderColor = (node.selected) ? '#b05ecc' : 'rgba(255,255,255,0.75)';
+          node.borderColor = (node.selected) ? '#4C73DD' : 'rgba(255,255,255,0.75)';
         }
       }
+
+      drawCanvas(hiddenContext, true);
 
       if (currentNode) {
         currentNode.border = true;

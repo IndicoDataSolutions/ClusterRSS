@@ -102,18 +102,12 @@ class QueryHandler(tornado.web.RequestHandler):
         - Pass json serialized articles + cluster numbers to the frontend
     """
     def get(self):
-        session = DBSession()
-        entries = session.query(Entry.group).all()
-        groups = list(set([entry[0] for entry in entries]))
-        session.commit()
-        session.close()
-        self.write(json.dumps(groups))
+        self.write(json.dumps({'meow': 'meow'}))
 
     def post(self):
         try:
             es = ESConnection("localhost:9200")
             data = json.loads(self.request.body)
-            group = data.get('group')
             query = data.get('query')
 
             entries = es.search(query, limit=500)
@@ -210,8 +204,8 @@ class QueryHandler(tornado.web.RequestHandler):
                 result_dict[cluster] = values
         except ClusterError as e:
             self.write(json.dumps({"error": str(e)}))
-
-        self.write(json.dumps(result_dict))
+        # with open('data.json', 'r') as data: FOR FRONTEND DEV
+        #     self.write(data.read())
 
 
 class RSSHandler(tornado.web.RequestHandler):
