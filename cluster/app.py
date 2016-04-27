@@ -204,8 +204,8 @@ class QueryHandler(tornado.web.RequestHandler):
                 result_dict[cluster] = values
         except ClusterError as e:
             self.write(json.dumps({"error": str(e)}))
-        # with open('data.json', 'r') as data: FOR FRONTEND DEV
-        #     self.write(data.read())
+
+        self.write(json.dumps(result_dict))
 
 
 class RSSHandler(tornado.web.RequestHandler):
