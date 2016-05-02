@@ -74,14 +74,21 @@ def _read_text_from_url(url):
 def pull_from_named_entities(list_of_entities, threshold):
     return list(set([entity['text'] for entity in list_of_entities if entity['confidence'] >= threshold]))
 
-def update_article(article):
-    indico = article.pop('indico')
-    article['keywords'] = filter(None, list(set([key for key in indico['keywords'].keys() if indico['keywords'][key] > 0.7])))
-    article['text_features'] = indico.get('text_features')
-    article['people'] = pull_from_named_entities(indico['people'], 0.7)
-    article['places'] = pull_from_named_entities(indico['places'], 0.7)
-    article['organizations'] = pull_from_named_entities(indico['organizations'], 0.7)
-    return article
+def update_articles(articles):
+    # indico = article.pop('indico')
+    text = [article.get("text") for article in articles]
+    indico_analysis = indicoio.analyze_text(text, apis=['keywords', 'sentiment', 'people', 'places', 'organizations'], api_key="fb039b9dafb34eeb83aa3307e8efb167")
+    
+    for api, results in indico_analysis.items():
+        for i, result in enumerate(results):
+            articles[i]['indico'][api] = result
+
+    # article['keywords'] = filter(None, list(set([key for key in indico['keywords'].keys() if indico['keywords'][key] > 0.7])))
+    # article['text_features'] = indico.get('text_features')
+    # article['people'] = pull_from_named_entities(indico['people'], 0.7)
+    # article['places'] = pull_from_named_entities(indico['places'], 0.7)
+    # article['organizations'] = pull_from_named_entities(indico['organizations'], 0.7)
+    return articles
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -111,6 +118,9 @@ class QueryHandler(tornado.web.RequestHandler):
             query = data.get('query')
 
             entries = es.search(query, limit=500)
+            seen_titles = set()
+            seen_add = seen_titles.add
+            entries = [entry for entry in entries if not (entry['title'] in seen_titles or seen_add(entry['title']))]
 
             if not entries:
                 self.write(json.dumps({'error': 'bad query'}))
@@ -177,6 +187,7 @@ class QueryHandler(tornado.web.RequestHandler):
             keywords_master_list = []
             title_keywords_master_list = []
             for cluster, values in result_dict.items():
+                values['articles'] = update_articles(values['articles'])
                 values['people'] = highest_scores(values["people"], 3, ["Shutterstock"])
                 values['organizations'] = highest_scores(values["organizations"], 3, ["Shutterstock"])
                 values['places'] = highest_scores(values["places"], 3, ["Shutterstock"])

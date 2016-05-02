@@ -15,12 +15,12 @@ function groupBy( clusters , sortingFunction ) {
   return groupedClusters
 }
 
-$.get('/text-mining/query', function(data) {
-  data = JSON.parse(data);
-  data.forEach(function(group, i) {
-    $('#query > select[name="group"]').append('<option value="'+group+'"]>'+group+'</option>')
-  });
-});
+// $.get('/text-mining/query', function(data) {
+//   data = JSON.parse(data);
+//   data.forEach(function(group, i) {
+//     $('#query > select[name="group"]').append('<option value="'+group+'"]>'+group+'</option>')
+//   });
+// });
 
 $('#query').submit(function(e) {
   e.preventDefault();
@@ -154,8 +154,7 @@ function drawAll(error, dataset) {
   
   var cWidth = canvas.attr("width");
   var cHeight = canvas.attr("height");
-  var colors = d3.scale.ordinal()
-    .domain([0, holders.length])
+  var colors = d3.scale.linear()
     .range(["#4C377C", "#B45CCF"]);
     // .range(["#967BDD", "#0BE161", "#5A89ED", "#239773", "#E45661", "#E44974", "#A478DE", "#6183E4", "#CC4EED", "#703987"]);
   var nodeCount = nodes.length;
@@ -209,7 +208,7 @@ function drawAll(error, dataset) {
       context.textAlign = "center";
       keywordsOverlayRect(context, node);
       context.fillStyle = '#333';
-      var words = node.info.title_keywords.join(', ').split(' ');
+      var words = Object.keys(node.info.cluster_title.indico.title_keywords).join(', ').split(' ');
       var x = ((node.x - zoomInfo.centerX) * zoomInfo.scale) + centerX;
       var maxHeight = 50;
     } else {
@@ -268,7 +267,7 @@ function drawAll(error, dataset) {
         // On the hidden canvas each rectangle gets a unique color.
         chosenContext.fillStyle = node.color;
       } else {
-        chosenContext.fillStyle = (node.holder || node.top) ? '#333' : colors(node.distance[0]);
+        chosenContext.fillStyle = (node.holder || node.top) ? '#333' : colors(node.indico.sentiment);
       }// else
 
       chosenContext.lineWidth = 2;
@@ -326,6 +325,7 @@ function drawAll(error, dataset) {
   function slideInfoOut(node) {
     updateText(node, ['keywords', 'people', 'places', 'organizations'], '#info');
     $('#info .text p').html(node.text);
+    $('#info .sentiment').html('<b>'+(node.indico.sentiment.toFixed(2)*100).toString()+'% Positive</b><br><br>');
 
     $('#info .title').find('a').attr('href', node.link);
     $('#info .title').find('a').text(node.title);
@@ -348,12 +348,14 @@ function drawAll(error, dataset) {
     //Figure out where the mouse click occurred.
     mouseX = e.layerX;
     mouseY = e.layerY;
+
     // Get the corresponding pixel color on the hidden canvas and look up the node in our map.
     // This will return that pixel's color
     var col = hiddenContext.getImageData(mouseX, mouseY, 1, 1).data;
     //Our map uses these rgb strings as keys to nodes.
     var colString = "rgb(" + col[0] + "," + col[1] + ","+ col[2] + ")";
     currentNode = colToCircle[colString];
+    console.log(currentNode);
 
     // We actually only need to draw the hidden canvas when there is an interaction. 
     // This sketch can draw it on each loop, but that is only for demonstration.
