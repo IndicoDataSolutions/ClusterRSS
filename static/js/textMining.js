@@ -208,7 +208,7 @@ function drawAll(error, dataset) {
       context.textAlign = "center";
       keywordsOverlayRect(context, node);
       context.fillStyle = '#333';
-      var words = Object.keys(node.info.cluster_title.indico.title_keywords).join(', ').split(' ');
+      var words = node.info.title_keywords.join(', ').split(' ');
       var x = ((node.x - zoomInfo.centerX) * zoomInfo.scale) + centerX;
       var maxHeight = 50;
     } else {
@@ -325,7 +325,7 @@ function drawAll(error, dataset) {
   function slideInfoOut(node) {
     updateText(node, ['keywords', 'people', 'places', 'organizations'], '#info');
     $('#info .text p').html(node.text);
-    $('#info .sentiment').html('<b>'+(node.indico.sentiment.toFixed(2)*100).toString()+'% Positive</b><br><br>');
+    $('#info .sentiment').html('<b>'+((node.indico.sentiment*100).toFixed(1)).toString()+'% Positive</b><br><br>');
 
     $('#info .title').find('a').attr('href', node.link);
     $('#info .title').find('a').text(node.title);
@@ -399,7 +399,9 @@ function drawAll(error, dataset) {
   }
 
   function showTop (article, indicoSelector) {
-    var uniques = uniqueBy(article.indico[indicoSelector], function(obj) { return obj.text });
+    var uniques = uniqueBy(article.indico[indicoSelector], function(obj) { return obj.text }).filter(function(entity) {
+      return entity.text.length < 15;
+    });
     return uniques.slice(0, 3).map(function(entityMetadata) {
       return entityMetadata.text;
     }).join(', ');
@@ -456,8 +458,10 @@ function drawAll(error, dataset) {
     }
 
     var clusterIndico = findCluster(node).info;
-    var info = clusterIndico.people.join(', ')+', '+clusterIndico.places.join(', ');
-    
+
+    var info = clusterIndico.people.join(', ')+', '+clusterIndico.places.join(', ')+', '+clusterIndico.organizations.join(', ');
+    info = info.split(', ').filter(function(entity) { return entity.length < 12 }).join(', ');
+
     $('#banner > span').text(info);
   }
 

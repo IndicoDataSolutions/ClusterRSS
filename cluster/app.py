@@ -74,6 +74,12 @@ def _read_text_from_url(url):
 def pull_from_named_entities(list_of_entities, threshold):
     return list(set([entity['text'] for entity in list_of_entities if entity['confidence'] >= threshold]))
 
+def create_full_cluster_dict(cluster_info, key):
+    if key in ['people', 'places', 'organizations']:
+        return {entity['text']: entity['confidence'] for article in cluster_info['articles'] for entity in article['indico'].get(key)}
+    else:
+        return {k: v for article in cluster_info['articles'] for k, v in article['indico'].get(key).items()}
+
 def update_articles(articles):
     # indico = article.pop('indico')
     text = [article.get("text") for article in articles]
@@ -118,6 +124,11 @@ class QueryHandler(tornado.web.RequestHandler):
             query = data.get('query')
 
             entries = es.search(query, limit=500)
+            # print entries[0].get('title'), '\n\n'
+            # print entries[0].get('summary'), '\n\n'
+            # print entries[0].get('financial'), '\n\n'
+            # for k in entries[0].get('indico').keys():
+            #     print '\n\n\n', k, entries[0].get('indico')[k], '\n\n\n'
             seen_titles = set()
             seen_add = seen_titles.add
             entries = [entry for entry in entries if not (entry['title'] in seen_titles or seen_add(entry['title']))]
@@ -186,21 +197,26 @@ class QueryHandler(tornado.web.RequestHandler):
 
             keywords_master_list = []
             title_keywords_master_list = []
-            for cluster, values in result_dict.items():
-                values['articles'] = update_articles(values['articles'])
-                values['people'] = highest_scores(values["people"], 3, ["Shutterstock"])
-                values['organizations'] = highest_scores(values["organizations"], 3, ["Shutterstock"])
-                values['places'] = highest_scores(values["places"], 3, ["Shutterstock"])
+            for cluster, cluster_info in result_dict.items():
+                cluster_info['articles'] = update_articles(cluster_info['articles'])
+                
+                all_people = create_full_cluster_dict(cluster_info, 'people')
+                cluster_info['people'] = highest_scores(all_people, 3, ["Shutterstock"])
+                all_places = create_full_cluster_dict(cluster_info, 'places')
+                cluster_info['places'] = highest_scores(all_places, 3, ["Shutterstock"])
+                all_organizations = create_full_cluster_dict(cluster_info, 'organizations')
+                cluster_info['organizations'] = highest_scores(all_organizations, 3, ["Shutterstock"])
 
-                sorted_keywords = sorted(values['keywords'].items(), key=lambda k: k[1])
-                values['keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
-                keywords_master_list.extend([val[0] for val in values['keywords'] if val[0] != "Shutterstock"])
+                all_keywords = create_full_cluster_dict(cluster_info, 'keywords')
+                sorted_keywords = sorted(all_keywords.items(), key=lambda k: k[1])
+                cluster_info['keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
+                keywords_master_list.extend([val[0] for val in cluster_info['keywords'] if val[0] != "Shutterstock"])
 
-                sorted_keywords = sorted(values['title_keywords'].items(), key=lambda k: k[1])
-                values['title_keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
-                title_keywords_master_list.extend([val[0] for val in values['title_keywords'] if val[0] != "Shutterstock"])
+                sorted_keywords = sorted(cluster_info['title_keywords'].items(), key=lambda k: k[1], reverse=True)
+                cluster_info['title_keywords'] = sorted_keywords[:min(5, len(sorted_keywords))]
+                title_keywords_master_list.extend([val[0] for val in cluster_info['title_keywords'] if val[0] != "Shutterstock"])
 
-                result_dict[cluster] = values
+                result_dict[cluster] = cluster_info
 
             for cluster, values in result_dict.items():
                 values['keywords'] = [value for value in values['keywords']
@@ -211,8 +227,8 @@ class QueryHandler(tornado.web.RequestHandler):
                                       if title_keywords_master_list.count(value[0]) <= max(len(result_dict)*.35, 1)]
                 values['title_keywords'] = [val[0] for val in values['title_keywords']][-min(3, len(values['title_keywords'])):]
                 values['cluster_title'] = values['articles'][cluster_center[cluster]]
-
                 result_dict[cluster] = values
+
         except ClusterError as e:
             self.write(json.dumps({"error": str(e)}))
 
