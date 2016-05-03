@@ -28,16 +28,15 @@ def parse_obj_to_document(obj):
     text = re.sub(r"[\s]+", " ", text)
     text = re.sub(r"[[\w\-]*\s*[\.[\w\-]*\s*]*]*\s*{[^}]*}", "", text)
     text = text.encode("ascii", "ignore").decode("ascii", "ignore")
-    characters = text = re.sub(r"[^A-Za-z0-9 ]", "", text)
 
     return Document(
         title=title,
         text=text,
         link=link,
         tags=tags,
-        length=len(characters),
+        length=len(text),
         summary=ENGLISH_SUMMARIZER.parse(text, sentences=3),
-        financial=cross_reference(characters, FINANCIAL_WORDS)
+        financial=cross_reference(text, FINANCIAL_WORDS)
     )
 
 def add_indico(documents):
