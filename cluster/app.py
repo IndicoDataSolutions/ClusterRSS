@@ -119,16 +119,16 @@ class QueryHandler(tornado.web.RequestHandler):
 
     def post(self):
         try:
-            es = ESConnection("localhost:9200")
+            es = ESConnection("http://localhost:9200", index='indico-cluster-data-clean')
             data = json.loads(self.request.body)
             query = data.get('query')
 
             entries = es.search(query, limit=500)
-            # print entries[0].get('title'), '\n\n'
-            # print entries[0].get('summary'), '\n\n'
-            # print entries[0].get('financial'), '\n\n'
-            # for k in entries[0].get('indico').keys():
-            #     print '\n\n\n', k, entries[0].get('indico')[k], '\n\n\n'
+            print len(entries)
+            if len(entries) < 5:
+                self.write(json.dumps({'error':'bad query'}))
+                return
+            
             seen_titles = set()
             seen_add = seen_titles.add
             entries = [entry for entry in entries if not (entry['title'] in seen_titles or seen_add(entry['title']))]
@@ -138,12 +138,16 @@ class QueryHandler(tornado.web.RequestHandler):
                 return
 
             features_matrix = [entry['text'] for entry in entries]
-            feature_vectors = make_feature_vectors(features_matrix, "tf-idf")
-
-            if not feature_vectors.shape[0]:
+            try:
+                feature_vectors = make_feature_vectors(features_matrix, "tf-idf")
+                if not feature_vectors.shape[0]:
+                    raise Exception('empty results')
+            except Exception as e:
                 self.write(json.dumps({
-                    "error": "empty results"
+                    'error': e.args[0]
                 }))
+                return
+
 
             for i in [0, .1, .2, .3, .4, .5]:
                 all_clusters, all_similarities = DBScanClustering(feature_vectors, metric="euclidean", eps=1.0+i)
@@ -198,7 +202,7 @@ class QueryHandler(tornado.web.RequestHandler):
             keywords_master_list = []
             title_keywords_master_list = []
             for cluster, cluster_info in result_dict.items():
-                cluster_info['articles'] = update_articles(cluster_info['articles'])
+                # cluster_info['articles'] = update_articles(cluster_info['articles'])
                 
                 all_people = create_full_cluster_dict(cluster_info, 'people')
                 cluster_info['people'] = highest_scores(all_people, 3, ["Shutterstock"])
@@ -232,7 +236,11 @@ class QueryHandler(tornado.web.RequestHandler):
         except ClusterError as e:
             self.write(json.dumps({"error": str(e)}))
 
+        # with open('somedata.txt', 'r') as f:
+        #     self.write(json.dumps(json.loads(f.read())))
+            # f.write(json.dumps(result_dict))
         self.write(json.dumps(result_dict))
+
 
 
 class RSSHandler(tornado.web.RequestHandler):

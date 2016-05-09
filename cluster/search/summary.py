@@ -40,5 +40,5 @@ What has scientists concerned now is that over the past 250 years, humans have b
     """
     test_text = test_text.decode("ascii", "ignore")
     summarizer = Summary(language="english")
-    results = summarizer.parse(test_text)
-    print " ".join(map(lambda x: x.__str__(), results))
+    results = summarizer.parse(test_text, sentences=3)
+    print results

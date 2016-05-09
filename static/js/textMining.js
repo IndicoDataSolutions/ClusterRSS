@@ -208,7 +208,7 @@ function drawAll(error, dataset) {
       context.textAlign = "center";
       keywordsOverlayRect(context, node);
       context.fillStyle = '#333';
-      var words = node.info.title_keywords.join(', ').split(' ');
+      var words = node.info.keywords.join(', ').split(' ');
       var x = ((node.x - zoomInfo.centerX) * zoomInfo.scale) + centerX;
       var maxHeight = 50;
     } else {
@@ -324,7 +324,7 @@ function drawAll(error, dataset) {
 
   function slideInfoOut(node) {
     updateText(node, ['keywords', 'people', 'places', 'organizations'], '#info');
-    $('#info .text p').html(node.text);
+    $('#info .text p').html(node.summary);
     $('#info .sentiment').html('<b>'+((node.indico.sentiment*100).toFixed(1)).toString()+'% Positive</b><br><br>');
 
     $('#info .title').find('a').attr('href', node.link);
@@ -457,10 +457,10 @@ function drawAll(error, dataset) {
       $('#banner').fadeIn();
     }
 
-    var clusterIndico = findCluster(node).info;
+    var clusterIndico = findCluster(node);
+    console.log(clusterIndico);
 
-    var info = clusterIndico.people.join(', ')+', '+clusterIndico.places.join(', ')+', '+clusterIndico.organizations.join(', ');
-    info = info.split(', ').filter(function(entity) { return entity.length < 12 }).join(', ');
+    var info = clusterIndico.info.keywords.join(', ');
 
     $('#banner > span').text(info);
   }
@@ -485,6 +485,8 @@ function drawAll(error, dataset) {
     if (!Object.is(oldNode, currentNode)) {
       oldNode = currentNode;
       
+      $('#tooltip').hide();
+      $('#banner').fadeOut();
       // We actually only need to draw the hidden canvas when there is an interaction. 
       // This sketch can draw it on each loop, but that is only for demonstration. 
       for (var i=0; i<nodeCount; i++) {
