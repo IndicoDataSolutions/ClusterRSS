@@ -3,6 +3,9 @@ import os, sys
 import indicoio
 import operator
 
+import pyexcel as pe
+import pyexcel.ext.xlsx
+
 from .client import ESConnection
 from .schema import Document, INDEX
 from load_data import upload_data, add_indico
@@ -31,15 +34,15 @@ def write_to_files(data, data_dir, chunk_size=500, left_bound=0, right_bound=Non
 
 if __name__ == "__main__":
 	print "LET'S DO THIS LEEEEEEERROOOOOOOYYYY"
-	data_dir = '../../complete/'
+	data_dir = '../../inputxl/'
 	data_dir = os.path.join(os.path.dirname(__file__), data_dir)
-	
+
 	# data = load_data(os.path.join(os.path.dirname(__file__), '../../stocks_news.ndjson.txt'))
 	# write_to_files(data, data_dir, chunk_size=200)
 
-	sorted_filenames = sorted(os.listdir(data_dir), key=lambda fname: int(fname.split('-')[0]))
+	sorted_filenames = sorted(os.listdir(data_dir), key=lambda fname: int((fname.split('_')[-1]).split('.')[0]))
 	print len(sorted_filenames)
-	
+
 	# some_json = []
 	# for file in sorted_filenames[0:1]:
 	# 	some_json = load_data(data_dir+file)
@@ -53,15 +56,16 @@ if __name__ == "__main__":
 	# for fname in sorted_filenames[12:25]:
 	# 	with open(os.path.join(data_dir, '../complete/', fname), 'r') as f:
 	# 		es.upload([json.loads(l) for l in f.readlines()])
-	
+
 	# es = ESConnection("localhost:9200", index='indico-cluster-data-clean')
 	left = int(sys.argv[1])
 	right = int(sys.argv[2])
+	es = ESConnection("localhost:9200", index=INDEX)
 	for fname in sorted_filenames[left: right]:
 		print fname
 		try:
-			documents = load_data(os.path.join(data_dir, fname))
+			documents = upload_data(es, os.path.join(data_dir, fname))
 			# es.upload(documents)
 		except Exception as exc:
-			print '\n\n', i, fname, 'BROKE BROKE BROKE\n\n'
+			print '\n\n', fname, 'BROKE BROKE BROKE\n\n'
 			import traceback; traceback.print_exc()
