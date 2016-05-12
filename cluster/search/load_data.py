@@ -42,6 +42,7 @@ def parse_obj_to_document(obj):
         tags=tags,
         length=len(text),
         date=pub_date,
+        indico={},
         summary=ENGLISH_SUMMARIZER.parse(text, sentences=3)
     )
 
@@ -64,46 +65,95 @@ def not_relevant_and_recent(document):
 
 
 def add_indico(documents, filename):
+    before_documents = [deepcopy(document) for document in documents]
     new_documents = []
-    for i, document in tqdm(enumerate(documents)):
-        new_doc = deepcopy(document)
-        text = new_doc.get("text")
-        title = new_doc.get("title")
-        new_doc["indico"] = {}
-        if not_relevant_and_recent(new_doc):
-            continue
-        print i, filename, title
+    for documents_sub_list in [before_documents[x:x+50] for x in xrange(0, len(before_documents), 50)]:
+        documents_sub_list = [doc for doc in documents_sub_list if not not_relevant_and_recent(doc)]
+        print len(documents_sub_list)
+        # text = new_doc.get("text")
+        # title = new_doc.get("title")
+        # new_doc["indico"] = {}
+        # if not_relevant_and_recent(new_doc):
+        #     continue
+        # print i, filename, title
         try:
-            text_analysis = indicoio.analyze_text([text, title], apis=[
+            text_analysis = indicoio.analyze_text([doc.get("title") for doc in documents_sub_list], apis=[
                 "sentiment_hq",
                 "keywords",
                 "people",
                 "places",
-                "organizations",
-                "text_features"
+                "organizations"
             ])
-
-            new_doc["indico"]["title_sentiment"] = text_analysis.get('sentiment_hq')[1]
-            new_doc["indico"]["title_keywords"] = text_analysis.get('keywords')[1]
-            new_doc["indico"]["title_people"] = text_analysis.get('people')[1]
-            new_doc["indico"]["title_places"] = text_analysis.get('places')[1]
-            new_doc["indico"]["title_organizations"] = text_analysis.get('organizations')[1]
-            new_doc["indico"]["title_text_features"] = text_analysis.get('text_features')[1]
-
-
-            new_doc["indico"]["sentiment"] = text_analysis.get('sentiment_hq')[0]
-            new_doc["indico"]["keywords"] = text_analysis.get('keywords')[0]
-            new_doc["indico"]["people"] = text_analysis.get('people')[0]
-            new_doc["indico"]["places"] = text_analysis.get('places')[0]
-            new_doc["indico"]["organizations"] = text_analysis.get('organizations')[0]
-            new_doc["indico"]["text_features"] = text_analysis.get('text_features')[0]
+            for i in range(len(documents_sub_list)):
+                documents_sub_list[i]["indico"] = {}
+                documents_sub_list[i]["indico"]["title_sentiment"] = text_analysis.get('sentiment_hq')[i]
+                documents_sub_list[i]["indico"]["title_keywords"] = text_analysis.get('keywords')[i]
+                documents_sub_list[i]["indico"]["title_people"] = text_analysis.get('people')[i]
+                documents_sub_list[i]["indico"]["title_places"] = text_analysis.get('places')[i]
+                documents_sub_list[i]["indico"]["title_organizations"] = text_analysis.get('organizations')[i]
 
 
-            new_documents.append(new_doc)
-            new_doc = {}
+            text_analysis = indicoio.analyze_text([doc.get("text") for doc in documents_sub_list], apis=[
+                "sentiment_hq",
+                "keywords",
+                "people",
+                "places",
+                "organizations"
+            ])
+            for i in range(len(documents_sub_list)):
+                documents_sub_list[i]["indico"]["sentiment"] = text_analysis.get('sentiment_hq')[i]
+                documents_sub_list[i]["indico"]["keywords"] = text_analysis.get('keywords')[i]
+                documents_sub_list[i]["indico"]["people"] = text_analysis.get('people')[i]
+                documents_sub_list[i]["indico"]["places"] = text_analysis.get('places')[i]
+                documents_sub_list[i]["indico"]["organizations"] = text_analysis.get('organizations')[i]
+
+
+            new_documents.extend(documents_sub_list)
         except:
             import traceback; traceback.print_exc()
             return False
+
+    # return new_documents
+    # new_documents = []
+    # for i, document in enumerate(documents):
+    #     new_doc = deepcopy(document)
+    #     text = new_doc.get("text")
+    #     title = new_doc.get("title")
+    #     new_doc["indico"] = {}
+    #     if not_relevant_and_recent(new_doc):
+    #         continue
+    #     print i, filename, title
+    #     try:
+    #         text_analysis = indicoio.analyze_text([text, title], apis=[
+    #             "sentiment_hq",
+    #             "keywords",
+    #             "people",
+    #             "places",
+    #             "organizations",
+    #             "text_features"
+    #         ])
+
+    #         new_doc["indico"]["title_sentiment"] = text_analysis.get('sentiment_hq')[1]
+    #         new_doc["indico"]["title_keywords"] = text_analysis.get('keywords')[1]
+    #         new_doc["indico"]["title_people"] = text_analysis.get('people')[1]
+    #         new_doc["indico"]["title_places"] = text_analysis.get('places')[1]
+    #         new_doc["indico"]["title_organizations"] = text_analysis.get('organizations')[1]
+    #         new_doc["indico"]["title_text_features"] = text_analysis.get('text_features')[1]
+
+
+    #         new_doc["indico"]["sentiment"] = text_analysis.get('sentiment_hq')[0]
+    #         new_doc["indico"]["keywords"] = text_analysis.get('keywords')[0]
+    #         new_doc["indico"]["people"] = text_analysis.get('people')[0]
+    #         new_doc["indico"]["places"] = text_analysis.get('places')[0]
+    #         new_doc["indico"]["organizations"] = text_analysis.get('organizations')[0]
+    #         new_doc["indico"]["text_features"] = text_analysis.get('text_features')[0]
+
+
+    #         new_documents.append(new_doc)
+    #         new_doc = {}
+    #     except:
+    #         import traceback; traceback.print_exc()
+    #         return False
 
     return new_documents
 
@@ -115,7 +165,7 @@ def upload_data(es, current_dir):
         for filename in files:
             data_file = os.path.join(current_dir, filename)
             print data_file
-            lines = [line for line in pe.get_records(file_name=data_file) if line.get("description_text") and len(line.get("description_text")) > 600][:10]
+            lines = [line for line in pe.get_records(file_name=data_file) if line.get("description_text") and len(line.get("description_text")) > 600][:1000]
             print len(lines)
 
 
@@ -135,7 +185,7 @@ def upload_data(es, current_dir):
                         data_dump.write(json.dumps(document)+'\n')
 
             print "written"
-            es.upload(clean_documents)
+            # es.upload(clean_documents)
 
             print 'done - total time:', time.time() - t0
             return True
