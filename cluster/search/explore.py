@@ -60,8 +60,8 @@ if __name__ == "__main__":
 	for fname in sorted_filenames[left: right]:
 		print fname
 		try:
-			documents = load_data(os.path.join(data_dir, fname))
+			documents = upload_data(data_dir, fname)
 			# es.upload(documents)
 		except Exception as exc:
-			print '\n\n', i, fname, 'BROKE BROKE BROKE\n\n'
+			print '\n\n', fname, 'BROKE BROKE BROKE\n\n'
 			import traceback; traceback.print_exc()
