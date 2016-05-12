@@ -2,6 +2,7 @@ import os, re, json
 import time
 from copy import deepcopy
 import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 import indicoio
 from tqdm import tqdm
@@ -55,21 +56,20 @@ def not_in_sp500(document):
 
 def not_relevant_and_recent(document):
     if not document["text"] or not document["title"]:
-        print 'lacking content'
         return True
     pub_date = date_parse(document.get("date"))
     if pub_date < ONE_YEAR_AGO and not_in_sp500(document):
-        print 'not relevant or recent'
         return True
     return False
 
 
-def add_indico(documents, filename):
+def add_indico(documents):
+    print 'add indico'
     before_documents = [deepcopy(document) for document in documents]
     new_documents = []
     for documents_sub_list in [before_documents[x:x+50] for x in xrange(0, len(before_documents), 50)]:
         documents_sub_list = [doc for doc in documents_sub_list if not not_relevant_and_recent(doc)]
-        print len(documents_sub_list)
+        # print len(documents_sub_list)
         # text = new_doc.get("text")
         # title = new_doc.get("title")
         # new_doc["indico"] = {}
@@ -157,38 +157,53 @@ def add_indico(documents, filename):
 
     return new_documents
 
+
 def upload_data(es, current_dir):
     t0 = time.time()
-
-    documents = []
+    executor = ThreadPoolExecutor(max_workers=4)
+    all_files = []
     for subdir, dirs, files in os.walk(current_dir):
         for filename in files:
-            data_file = os.path.join(current_dir, filename)
-            print data_file
-            lines = [line for line in pe.get_records(file_name=data_file) if line.get("description_text") and len(line.get("description_text")) > 600][:1000]
-            print len(lines)
+            all_files.append(os.path.join(current_dir, filename))
+
+    def sub_problem(data_file):
+        print data_file
+        lines = [line for line in pe.get_records(file_name=data_file) if line.get("description_text") and len(line.get("description_text")) > 600][:100]
+        print len(lines)
 
 
-            documents = map(lambda x: parse_obj_to_document(x), lines)
-            documents = filter(lambda doc: doc.link and "Service Unavailable" not in doc.text, documents)
-            print 'raw docs'
+        documents = map(lambda x: parse_obj_to_document(x), lines)
+        documents = filter(lambda doc: doc.link and "Service Unavailable" not in doc.text, documents)
+        print 'raw docs'
+        return add_indico(documents)
 
-            clean_documents = add_indico(documents, filename)
-            print "added_indico"
+    futures = {executor.submit(sub_problem, data_file): data_file for data_file in all_files}
+    data_dir = os.path.join(os.path.dirname(__file__), '../../backups/')
+    for future in concurrent.futures.as_completed(futures):
+        clean_documents = futures[future]
+        with open(data_dir+filename, 'w') as data_dump:
+            for document in clean_documents:
+                data_dump.write(json.dumps(document)+'\n')
 
+        print "written"
+        # es.upload(clean_documents)
 
-            data_dir = os.path.join(os.path.dirname(__file__), '../../backups/')
-            if clean_documents:
-                print "about to write", len(clean_documents), "documents to", data_dir
-                with open(data_dir+filename, 'w') as data_dump:
-                    for document in clean_documents:
-                        data_dump.write(json.dumps(document)+'\n')
+        print 'done - total time:', time.time() - t0
 
-            print "written"
-            # es.upload(clean_documents)
+        # future = executor.submit(add_indico, documents)
+        # # clean_documents=future.result()
+        # print "added_indico"
 
-            print 'done - total time:', time.time() - t0
-            return True
+        # data_dir = os.path.join(os.path.dirname(__file__), '../../backups/')
+        # print "about to write", len(clean_documents), "documents to", data_dir
+        # with open(data_dir+filename, 'w') as data_dump:
+        #     for document in future.result():
+        #         data_dump.write(json.dumps(document)+'\n')
+
+        # print "written"
+        # # es.upload(future.result())
+
+        # print 'done - total time:', time.time() - t0
 
 
 if __name__ == "__main__":
