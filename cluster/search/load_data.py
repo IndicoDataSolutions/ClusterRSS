@@ -74,7 +74,7 @@ def add_indico(documents):
         try:
             text_analysis = {}
             text_analysis["sentiment_hq"] = indicoio.sentiment_hq([doc.get("title") for doc in documents_sub_list])
-            text_analysis["keywords"] = indicoio.keywords([doc.get("title") for doc in documents_sub_list])
+            text_analysis["keywords"] = indicoio.keywords([doc.get("title") for doc in documents_sub_list], version=1)
             ner = indicoio.named_entities([doc.get("title") for doc in documents_sub_list], version=2)
             text_analysis["people"] = ner["people"]
             text_analysis["places"] = ner["places"]
@@ -90,11 +90,12 @@ def add_indico(documents):
 
             text_analysis = {}
             text_analysis["sentiment_hq"] = indicoio.sentiment_hq([doc.get("text") for doc in documents_sub_list])
-            text_analysis["keywords"] = indicoio.keywords([doc.get("text") for doc in documents_sub_list])
+            text_analysis["keywords"] = indicoio.keywords([doc.get("text") for doc in documents_sub_list], version=1)
             ner = indicoio.named_entities([doc.get("text") for doc in documents_sub_list], version=2)
             text_analysis["people"] = ner["people"]
             text_analysis["places"] = ner["places"]
             text_analysis["organizations"] = ner["organizations"]
+
             for i in range(len(documents_sub_list)):
                 documents_sub_list[i]["indico"]["sentiment"] = text_analysis.get('sentiment_hq')[i]
                 documents_sub_list[i]["indico"]["keywords"] = text_analysis.get('keywords')[i]
@@ -124,7 +125,7 @@ def upload_data(es, current_dir):
         def sub_problem(data_file):
             try:
                 print data_file
-                lines = [line for line in pe.get_records(file_name=data_file) if line.get("description_text") and len(line.get("description_text")) > 600][:100]
+                lines = [line for line in pe.get_records(file_name=data_file) if line.get("description_text") and len(line.get("description_text")) > 600]
                 print len(lines)
 
 
@@ -141,12 +142,12 @@ def upload_data(es, current_dir):
         futures = {executor.submit(sub_problem, data_file): data_file for data_file in files}
         data_dir = os.path.join(os.path.dirname(__file__), '../../backups/')
         for future in concurrent.futures.as_completed(futures):
-            clean_documents = futures[future]
+            # clean_documents = futures[future]
             try:
 
                 print "written"
                 try:
-                    es.upload(clean_documents)
+                    es.upload(future.result())
                 except:
                     import traceback; traceback.print_exc()
             except:
