@@ -3,6 +3,7 @@ import time
 from copy import deepcopy
 import datetime
 from concurrent.futures import ThreadPoolExecutor
+import multiprocessing
 
 import indicoio
 from tqdm import tqdm
@@ -70,20 +71,14 @@ def add_indico(documents):
     new_documents = []
     for documents_sub_list in [before_documents[x:x+50] for x in xrange(0, len(before_documents), 50)]:
         documents_sub_list = [doc for doc in documents_sub_list if not not_relevant_and_recent(doc)]
-        # print len(documents_sub_list)
-        # text = new_doc.get("text")
-        # title = new_doc.get("title")
-        # new_doc["indico"] = {}
-        # if not_relevant_and_recent(new_doc):
-        #     continue
-        # print i, filename, title
         try:
             text_analysis = {}
             text_analysis["sentiment_hq"] = indicoio.sentiment_hq([doc.get("title") for doc in documents_sub_list])
             text_analysis["keywords"] = indicoio.keywords([doc.get("title") for doc in documents_sub_list])
-            text_analysis["people"] = indicoio.people([doc.get("title") for doc in documents_sub_list])
-            text_analysis["places"] = indicoio.places([doc.get("title") for doc in documents_sub_list])
-            text_analysis["organizations"] = indicoio.organizations([doc.get("title") for doc in documents_sub_list])
+            ner = indicoio.named_entities([doc.get("title") for doc in documents_sub_list], version=2)
+            text_analysis["people"] = ner["people"]
+            text_analysis["places"] = ner["places"]
+            text_analysis["organizations"] = ner["organizations"]
 
             for i in range(len(documents_sub_list)):
                 documents_sub_list[i]["indico"] = {}
@@ -96,9 +91,10 @@ def add_indico(documents):
             text_analysis = {}
             text_analysis["sentiment_hq"] = indicoio.sentiment_hq([doc.get("text") for doc in documents_sub_list])
             text_analysis["keywords"] = indicoio.keywords([doc.get("text") for doc in documents_sub_list])
-            text_analysis["people"] = indicoio.people([doc.get("text") for doc in documents_sub_list])
-            text_analysis["places"] = indicoio.places([doc.get("text") for doc in documents_sub_list])
-            text_analysis["organizations"] = indicoio.organizations([doc.get("text") for doc in documents_sub_list])
+            ner = indicoio.named_entities([doc.get("text") for doc in documents_sub_list], version=2)
+            text_analysis["people"] = ner["people"]
+            text_analysis["places"] = ner["places"]
+            text_analysis["organizations"] = ner["organizations"]
             for i in range(len(documents_sub_list)):
                 documents_sub_list[i]["indico"]["sentiment"] = text_analysis.get('sentiment_hq')[i]
                 documents_sub_list[i]["indico"]["keywords"] = text_analysis.get('keywords')[i]
@@ -112,97 +108,56 @@ def add_indico(documents):
             import traceback; traceback.print_exc()
             return False
 
-    # return new_documents
-    # new_documents = []
-    # for i, document in enumerate(documents):
-    #     new_doc = deepcopy(document)
-    #     text = new_doc.get("text")
-    #     title = new_doc.get("title")
-    #     new_doc["indico"] = {}
-    #     if not_relevant_and_recent(new_doc):
-    #         continue
-    #     print i, filename, title
-    #     try:
-    #         text_analysis = indicoio.analyze_text([text, title], apis=[
-    #             "sentiment_hq",
-    #             "keywords",
-    #             "people",
-    #             "places",
-    #             "organizations",
-    #             "text_features"
-    #         ])
-
-    #         new_doc["indico"]["title_sentiment"] = text_analysis.get('sentiment_hq')[1]
-    #         new_doc["indico"]["title_keywords"] = text_analysis.get('keywords')[1]
-    #         new_doc["indico"]["title_people"] = text_analysis.get('people')[1]
-    #         new_doc["indico"]["title_places"] = text_analysis.get('places')[1]
-    #         new_doc["indico"]["title_organizations"] = text_analysis.get('organizations')[1]
-    #         new_doc["indico"]["title_text_features"] = text_analysis.get('text_features')[1]
-
-
-    #         new_doc["indico"]["sentiment"] = text_analysis.get('sentiment_hq')[0]
-    #         new_doc["indico"]["keywords"] = text_analysis.get('keywords')[0]
-    #         new_doc["indico"]["people"] = text_analysis.get('people')[0]
-    #         new_doc["indico"]["places"] = text_analysis.get('places')[0]
-    #         new_doc["indico"]["organizations"] = text_analysis.get('organizations')[0]
-    #         new_doc["indico"]["text_features"] = text_analysis.get('text_features')[0]
-
-
-    #         new_documents.append(new_doc)
-    #         new_doc = {}
-    #     except:
-    #         import traceback; traceback.print_exc()
-    #         return False
-
     return new_documents
 
 
 def upload_data(es, current_dir):
     t0 = time.time()
-    executor = ThreadPoolExecutor(max_workers=10)
+    executor = ThreadPoolExecutor(max_workers=4)
     all_files = []
     for subdir, dirs, files in os.walk(current_dir):
         for filename in files:
             all_files.append(os.path.join(current_dir, filename))
 
-    def sub_problem(data_file):
-        print data_file
-        lines = [line for line in pe.get_records(file_name=data_file) if line.get("description_text") and len(line.get("description_text")) > 600][:100]
-        print len(lines)
+
+    def worker(files):
+        def sub_problem(data_file):
+            try:
+                print data_file
+                lines = [line for line in pe.get_records(file_name=data_file) if line.get("description_text") and len(line.get("description_text")) > 600][:100]
+                print len(lines)
 
 
-        documents = map(lambda x: parse_obj_to_document(x), lines)
-        documents = filter(lambda doc: doc.link and "Service Unavailable" not in doc.text, documents)
-        print 'raw docs'
-        return add_indico(documents)
+                documents = map(lambda x: parse_obj_to_document(x), lines)
+                documents = filter(lambda doc: doc.link and "Service Unavailable" not in doc.text, documents)
+                print 'raw docs'
+                return add_indico(documents)
+            except:
+                print 'error in:'
+                print data_file
+                import traceback; traceback.print_exc()
+                return []
 
-    futures = {executor.submit(sub_problem, data_file): data_file for data_file in all_files}
-    data_dir = os.path.join(os.path.dirname(__file__), '../../backups/')
-    for future in concurrent.futures.as_completed(futures):
-        clean_documents = futures[future]
-        with open(data_dir+filename, 'w') as data_dump:
-            for document in clean_documents:
-                data_dump.write(json.dumps(document)+'\n')
+        futures = {executor.submit(sub_problem, data_file): data_file for data_file in files}
+        data_dir = os.path.join(os.path.dirname(__file__), '../../backups/')
+        for future in concurrent.futures.as_completed(futures):
+            clean_documents = futures[future]
+            try:
 
-        print "written"
-        # es.upload(clean_documents)
+                print "written"
+                try:
+                    es.upload(clean_documents)
+                except:
+                    import traceback; traceback.print_exc()
+            except:
+                import traceback; traceback.print_exc()
 
-        print 'done - total time:', time.time() - t0
+            print 'done - total time:', time.time() - t0
 
-        # future = executor.submit(add_indico, documents)
-        # # clean_documents=future.result()
-        # print "added_indico"
-
-        # data_dir = os.path.join(os.path.dirname(__file__), '../../backups/')
-        # print "about to write", len(clean_documents), "documents to", data_dir
-        # with open(data_dir+filename, 'w') as data_dump:
-        #     for document in future.result():
-        #         data_dump.write(json.dumps(document)+'\n')
-
-        # print "written"
-        # # es.upload(future.result())
-
-        # print 'done - total time:', time.time() - t0
+    for some_files in [all_files[i::4] for i in xrange(4)]:
+        p = multiprocessing.Process(target=worker, args=(some_files,))
+        p.start()
+        print 'started job'
 
 
 if __name__ == "__main__":
