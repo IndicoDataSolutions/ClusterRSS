@@ -16,6 +16,7 @@ from .client import ESConnection
 from .schema import Document, INDEX
 from .summary import Summary
 
+indicoio.config.cloud = 'themeextraction'
 EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=4)
 ENGLISH_SUMMARIZER = Summary(language="english")
 now = datetime.datetime.now()
@@ -77,13 +78,13 @@ def add_indico(documents):
         #     continue
         # print i, filename, title
         try:
-            text_analysis = indicoio.analyze_text([doc.get("title") for doc in documents_sub_list], apis=[
-                "sentiment_hq",
-                "keywords",
-                "people",
-                "places",
-                "organizations"
-            ])
+            text_analysis = {}
+            text_analysis["sentiment_hq"] = indicoio.sentiment_hq([doc.get("title") for doc in documents_sub_list])
+            text_analysis["keywords"] = indicoio.keywords([doc.get("title") for doc in documents_sub_list])
+            text_analysis["people"] = indicoio.people([doc.get("title") for doc in documents_sub_list])
+            text_analysis["places"] = indicoio.places([doc.get("title") for doc in documents_sub_list])
+            text_analysis["organizations"] = indicoio.organizations([doc.get("title") for doc in documents_sub_list])
+
             for i in range(len(documents_sub_list)):
                 documents_sub_list[i]["indico"] = {}
                 documents_sub_list[i]["indico"]["title_sentiment"] = text_analysis.get('sentiment_hq')[i]
@@ -92,14 +93,12 @@ def add_indico(documents):
                 documents_sub_list[i]["indico"]["title_places"] = text_analysis.get('places')[i]
                 documents_sub_list[i]["indico"]["title_organizations"] = text_analysis.get('organizations')[i]
 
-
-            text_analysis = indicoio.analyze_text([doc.get("text") for doc in documents_sub_list], apis=[
-                "sentiment_hq",
-                "keywords",
-                "people",
-                "places",
-                "organizations"
-            ])
+            text_analysis = {}
+            text_analysis["sentiment_hq"] = indicoio.sentiment_hq([doc.get("text") for doc in documents_sub_list])
+            text_analysis["keywords"] = indicoio.keywords([doc.get("text") for doc in documents_sub_list])
+            text_analysis["people"] = indicoio.people([doc.get("text") for doc in documents_sub_list])
+            text_analysis["places"] = indicoio.places([doc.get("text") for doc in documents_sub_list])
+            text_analysis["organizations"] = indicoio.organizations([doc.get("text") for doc in documents_sub_list])
             for i in range(len(documents_sub_list)):
                 documents_sub_list[i]["indico"]["sentiment"] = text_analysis.get('sentiment_hq')[i]
                 documents_sub_list[i]["indico"]["keywords"] = text_analysis.get('keywords')[i]
@@ -160,7 +159,7 @@ def add_indico(documents):
 
 def upload_data(es, current_dir):
     t0 = time.time()
-    executor = ThreadPoolExecutor(max_workers=4)
+    executor = ThreadPoolExecutor(max_workers=10)
     all_files = []
     for subdir, dirs, files in os.walk(current_dir):
         for filename in files:
