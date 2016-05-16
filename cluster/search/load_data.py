@@ -4,6 +4,7 @@ import datetime, logging
 from picklable_itertools.extras import partition_all
 from concurrent.futures import ThreadPoolExecutor
 from dateutil.parser import parse as date_parse
+import requests
 
 import pyexcel.ext.xlsx
 import pyexcel as pe
@@ -12,6 +13,9 @@ import indicoio
 from .client import ESConnection
 from .schema import Document
 from .summary import Summary
+
+# turn down requests log verbosity
+logging.getLogger('requests').setLevel(logging.CRITICAL)
 
 # Processing
 EXECUTOR = ThreadPoolExecutor(max_workers=8)
