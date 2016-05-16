@@ -1,7 +1,7 @@
 INDEX="indico-cluster-data"
 
 class Document(dict):
-    def __init__(self, title="", text="", tags=[], link="", length=0, summary="", financial=[], indico={}, _type="document"):
+    def __init__(self, title="", text="", tags=[], link="", length=0, summary="", financial=[], indico={}, _type="document", date=""):
         super(Document, self).__init__()
         self.update({
             "title": title,
@@ -12,6 +12,7 @@ class Document(dict):
             "summary": summary,
             "financial": financial,
             "indico": indico,
+            "date": date,
             "_type": _type
         })
 
