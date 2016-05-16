@@ -133,7 +133,8 @@ def get_all_data_files(current_dir):
 
 def read_data_file(data_file):
     try:
-        lines = [line for line in pe.get_records(file_name=data_file) if len(line.get("description_text", "")) > DESCRIPTION_THRESHOLD][:5]
+        lines = [line for line in pe.get_records(file_name=data_file, streaming=True) if len(line.get("description_text", "")) > DESCRIPTION_THRESHOLD][:5]
+        root.debug("Parsing Documents for {0}".format(data_file))
         documents = map(lambda x: parse_obj_to_document(x), lines)
         return documents
     except:
@@ -152,7 +153,7 @@ def upload_data(es, data_file):
 
 
 if __name__ == "__main__":
-    executor = ThreadPoolExecutor(max_workers=8)
+    executor = ThreadPoolExecutor(max_workers=4)
     es = ESConnection("localhost:9200")
     directory = os.path.join(os.path.dirname(__file__), '../../inputxl')
     files = get_all_data_files(directory)
