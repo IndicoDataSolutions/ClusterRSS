@@ -8,6 +8,7 @@ import requests
 
 import pyexcel.ext.xlsx
 import pyexcel as pe
+from pyexcel_xlsx import get_data
 import indicoio
 
 from .client import ESConnection
@@ -119,10 +120,7 @@ def add_indico(documents):
         return documents
     except:
         import traceback; traceback.print_exc()
-        length = len(documents)/2
-        if length <= 1:
-            return []
-        return add_indico(documents[:length]) + add_indico(documents[length:])
+        return reduce(lambda x,y: x + y, map(lambda x: add_indico([x]), documents))
 
 def get_all_data_files(current_dir):
     all_files = []
@@ -133,23 +131,32 @@ def get_all_data_files(current_dir):
 
 def read_data_file(data_file):
     try:
-        lines = [line for line in pe.get_records(file_name=data_file, streaming=True) if len(line.get("description_text", "")) > DESCRIPTION_THRESHOLD]
+        reader = get_data(data_file, streaming=True)
+        columns = reader.next()
+        documents = []
         root.debug("Parsing Documents for {0}".format(data_file))
-        documents = map(lambda x: parse_obj_to_document(x), lines)
+        for line in reader:
+            obj = dict(zip(columns, line))
+            if len(obj.get("description_text", "")) < DESCRIPTION_THRESHOLD:
+                continue
+            documents.append(parse_obj_to_document(obj))
         return documents
     except:
         import traceback; traceback.print_exc()
         return []
 
 def upload_data(es, data_file):
-    root.debug("Beginning Processing for {0}".format(data_file))
-    all_documents = read_data_file(data_file)
-    root.debug("Read Data for {0}".format(data_file))
-    for documents in partition_all(20, all_documents):
-        root.debug("Adding Indico for {0}".format(data_file))
-        documents = add_indico(documents)
-        root.debug("Uploading to elasticsearch for {0}".format(data_file))
-        es.upload(documents)
+    try:
+        root.debug("Beginning Processing for {0}".format(data_file))
+        all_documents = read_data_file(data_file)
+        root.debug("Read Data for {0}".format(data_file))
+        for documents in partition_all(20, all_documents):
+            root.debug("Adding Indico for {0}".format(data_file))
+            documents = add_indico(documents)
+            root.debug("Uploading to elasticsearch for {0}".format(data_file))
+            es.upload(documents)
+    except:
+        import traceback; traceback.print_exc()
 
 
 if __name__ == "__main__":
