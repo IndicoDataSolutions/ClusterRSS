@@ -19,5 +19,5 @@ Running
 -------
 ```bash
 python -m indicluster.app
-# navigate to localhost:8002 in your browser
+# navigate to localhost:8002/text-mining in your browser
 ```

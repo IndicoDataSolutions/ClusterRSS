@@ -1,6 +1,6 @@
 text-mining.db
 venv/
-
+index.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -64,3 +64,13 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+scripts/elasticsearch*
+*.tar.gz
+
+cluster/search/data
+complete/
+incomplete/
+entities/
+stocks_news.ndjson.txt
+data.json

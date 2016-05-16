@@ -2,7 +2,9 @@ html, body {
     height: 100%; 
     margin: 0px; 
     padding: 25px 0px 0px 0px;
+    background-color: #555;
 }
+body#app { background: #555; }
 
 .container {
     padding-bottom: 200px;

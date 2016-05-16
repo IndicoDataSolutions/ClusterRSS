@@ -7,18 +7,11 @@ import os
 
 if __name__ == "__main__":
     setup(
-        name = "indicluster",
+        name = "cluster",
         packages = find_packages(),
-        install_requires = [
-            "feedparser==5.1.3",
-            "gevent==1.0.2",
-            "IndicoIo==0.13.0",
-            "newspaper==0.0.9.8",
-            "requests==2.3.0",
-            "scikit-learn==0.17",
-            "SQLAlchemy==1.0.11",
-            "tornado==4.3",
-            "selenium==2.52.0"
-        ],
+        install_requires = open(
+            os.path.join(
+                os.path.dirname(__file__), "requirements.txt"
+            ), 'rb').readlines(),
         version = "0.1.0"
     )
