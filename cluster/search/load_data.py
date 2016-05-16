@@ -14,7 +14,7 @@ from .client import ESConnection
 from .schema import Document
 from .summary import Summary
 
-# turn down requests log verbosity
+# Turn down requests log verbosity
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 
 # Processing
@@ -133,7 +133,7 @@ def get_all_data_files(current_dir):
 
 def read_data_file(data_file):
     try:
-        lines = [line for line in pe.get_records(file_name=data_file, streaming=True) if len(line.get("description_text", "")) > DESCRIPTION_THRESHOLD][:5]
+        lines = [line for line in pe.get_records(file_name=data_file, streaming=True) if len(line.get("description_text", "")) > DESCRIPTION_THRESHOLD]
         root.debug("Parsing Documents for {0}".format(data_file))
         documents = map(lambda x: parse_obj_to_document(x), lines)
         return documents
