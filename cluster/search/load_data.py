@@ -120,6 +120,8 @@ def add_indico(documents):
     except:
         import traceback; traceback.print_exc()
         length = len(documents)/2
+        if length <= 1:
+            return []
         return add_indico(documents[:length]) + add_indico(documents[length:])
 
 def get_all_data_files(current_dir):
