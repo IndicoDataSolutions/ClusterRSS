@@ -38,9 +38,9 @@ root.addHandler(ch)
 # Indico
 indicoio.config.cloud = 'themeextraction'
 
-with open(os.path.join(os.path.dirname(__file__), "data", "sp500.txt"), 'rb') as f:
-    SP_TICKERS = f.readlines()
-
+SP_TICKERS = open(os.path.join(
+    os.path.dirname(__file__), "data", "sp500.txt"
+)).readlines()
 FINANCIAL_WORDS = set(json.loads(open(os.path.join(
     os.path.dirname(__file__), "data", "financial_keywords.json"
 )).read()))
@@ -107,12 +107,13 @@ def add_indico(documents):
         analysis["keywords"] = EXECUTOR.submit(indicoio.keywords, [doc.get("text") for doc in documents], version=1)
         analysis["ner"] = EXECUTOR.submit(indicoio.named_entities, [doc.get("text") for doc in documents], version=2)
 
-        analysis["title_sentiment_hq"] = try_except_result(analysis["title_sentiment_hq"], -1, individual=len(documents) == 1)
-        analysis["title_keywords"] = try_except_result(analysis["title_keywords"], [], individual=len(documents) == 1)
-        analysis["title_ner"] = try_except_result(analysis["title_ner"], defaultdict(list), individual=len(documents) == 1)
-        analysis["sentiment_hq"] = try_except_result(analysis["sentiment_hq"], -1, individual=len(documents) == 1)
-        analysis["keywords"] = try_except_result(analysis["keywords"], [], individual=len(documents) == 1)
-        analysis["ner"] = try_except_result(analysis["ner"], defaultdict(list), individual=len(documents) == 1)
+        individual = len(documents) == 1
+        analysis["title_sentiment_hq"] = try_except_result(analysis["title_sentiment_hq"], -1, individual=individual)
+        analysis["title_keywords"] = try_except_result(analysis["title_keywords"], [], individual=individual)
+        analysis["title_ner"] = try_except_result(analysis["title_ner"], defaultdict(list), individual=individual)
+        analysis["sentiment_hq"] = try_except_result(analysis["sentiment_hq"], -1, individual=individual)
+        analysis["keywords"] = try_except_result(analysis["keywords"], [], individual=individual)
+        analysis["ner"] = try_except_result(analysis["ner"], defaultdict(list), individual=individual)
 
         for i in xrange(len(documents)):
             # Title Analysis
@@ -138,6 +139,7 @@ def add_indico(documents):
         import traceback; traceback.print_exc()
         if len(documents) == 1:
             return []
+        # Split into batches of 1 and recombine
         return reduce(lambda x,y: x + y, map(lambda x: add_indico([x]), documents))
 
 def get_all_data_files(current_dir):
