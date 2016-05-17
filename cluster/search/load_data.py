@@ -128,6 +128,8 @@ def add_indico(documents):
         return documents
     except:
         import traceback; traceback.print_exc()
+        if len(documents) == 1:
+            return []
         return reduce(lambda x,y: x + y, map(lambda x: add_indico([x]), documents))
 
 def get_all_data_files(current_dir):
