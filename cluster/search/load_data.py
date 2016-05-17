@@ -15,6 +15,7 @@ import indicoio
 from .client import ESConnection
 from .schema import Document
 from .summary import Summary
+from .words import cross_reference
 
 # Turn down requests log verbosity
 logging.getLogger('requests').setLevel(logging.CRITICAL)
@@ -37,14 +38,17 @@ root.addHandler(ch)
 # Indico
 indicoio.config.cloud = 'themeextraction'
 
-with open('cluster/search/sp500.txt') as f:
-    SP_TICKERS = f.read().splitlines()
+with open(os.path.join(os.path.dirname(__file__), "data", "sp500.txt"), 'rb') as f:
+    SP_TICKERS = f.readlines()
+
+FINANCIAL_WORDS = set(json.loads(open(os.path.join(
+    os.path.dirname(__file__), "data", "financial_keywords.json"
+)).read()))
 
 def _not_in_sp500(document):
     in_text = any([re.compile(r'[^a-zA-Z]'+ re.escape(ticker)+ r'[^a-zA-Z]').search(document["text"]) for ticker in SP_TICKERS])
     in_title = any([re.compile(r'[^a-zA-Z]'+ re.escape(ticker)+ r'[^a-zA-Z]').search(document["title"]) for ticker in SP_TICKERS])
     return not(in_text or in_title)
-
 
 def _relevant_and_recent(document):
     try:
@@ -78,7 +82,8 @@ def parse_obj_to_document(obj):
         tags=tags,
         length=len(text),
         date=pub_date,
-        indico={}
+        indico={},
+        financial=cross_reference(text, FINANCIAL_WORDS)
     )
 
 def try_except_result(future, default, individual=False):

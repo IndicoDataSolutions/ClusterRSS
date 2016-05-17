@@ -9,6 +9,11 @@ from schema import INDEX
 es_logger = logging.getLogger('elasticsearch')
 es_logger.propagate = False
 es_logger.setLevel(logging.INFO)
+es_logger.setLevel(logging.DEBUG)
+
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+es_logger.addHandler(ch)
 
 class ESConnection(object):
     """Creates an Elasticsearch connection to the dedicated master hosts
@@ -39,7 +44,26 @@ class ESConnection(object):
             doc["_index"] = self.index
         return bulk(self.es, documents)
 
-    def search(self, query, limit=100, only_documents=True):
+    def update(self, query, scroll, updater):
+        """Updates documents through an updater function passed in"""
+        results = self.es.search(index=self.index, q=query, size=100, scroll=scroll)
+        scroll_id = results["_scroll_id"]
+
+        # Initial results
+        documents = results["hits"]["hits"]
+        while True:
+            es_logger.info("Update in Progress")
+            self._updater(documents, updater)
+            documents = self.es.scroll(scroll_id=scroll_id)["hits"]["hits"]
+            if not documents:
+                break
+
+    def _updater(self, documents, updater):
+        for document in documents:
+            document["_source"] = updater(document["_source"])
+        bulk(self.es, documents)
+
+    def search(self, query, limit=100, only_documents=True, **kwargs):
         """Performs a query on the Elasticsearch connection
         https://www.elastic.co/guide/en/elasticsearch/reference/current/full-text-queries.html
 
@@ -72,7 +96,7 @@ class ESConnection(object):
             u'timed_out': False
         }
         """
-        results = self.es.search(index=self.index, q=query, size=limit)
+        results = self.es.search(index=self.index, q=query, size=limit, **kwargs)
         if only_documents:
             return self._format_search(results)
         return results
