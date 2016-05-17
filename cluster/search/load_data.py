@@ -47,11 +47,14 @@ def _not_in_sp500(document):
 
 
 def _relevant_and_recent(document):
-    if not document.link or "Service Unavailable" in document.text:
-        return False
-    if not document["text"] or not document["title"]:
-        return False
-    if date_parse(document.get("date")) < ONE_YEAR_AGO and _not_in_sp500(document):
+    try:
+        if not document.link or "Service Unavailable" in document.text:
+            return False
+        if not document.get("text") or not document.get("title"):
+            return False
+        if date_parse(document.get("date")) < ONE_YEAR_AGO and _not_in_sp500(document):
+            return False
+    except:
         return False
     return True
 
