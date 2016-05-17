@@ -14,4 +14,4 @@ sumy==0.4.1
 tornado==4.3
 futures>=3.0.5
 pyexcel>=0.2.1
-pyexcel-xlsx>=0.2.1
+pyexcel-xlsx>=0.1.0

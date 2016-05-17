@@ -145,7 +145,7 @@ def read_data_file(data_file):
         root.debug("Parsing Documents for {0}".format(data_file))
         for line in reader:
             obj = dict(zip(columns, line))
-            if len(obj.get("description_text", "")) < DESCRIPTION_THRESHOLD:
+            if len(obj.get("description_text", "") or "") < DESCRIPTION_THRESHOLD:
                 continue
             documents.append(parse_obj_to_document(obj))
         return documents
