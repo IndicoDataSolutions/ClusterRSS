@@ -68,7 +68,6 @@ target/
 scripts/elasticsearch*
 *.tar.gz
 
-cluster/search/data
 complete/
 incomplete/
 entities/
