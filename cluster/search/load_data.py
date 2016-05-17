@@ -2,6 +2,7 @@ import os, re, sys
 import datetime, logging
 
 from picklable_itertools.extras import partition_all
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from dateutil.parser import parse as date_parse
 import requests
@@ -77,6 +78,13 @@ def parse_obj_to_document(obj):
         indico={}
     )
 
+def try_except_result(future, default, individual=False):
+    try:
+        return future.result()
+    except:
+        if individual:
+            return [default]
+        raise
 
 def add_indico(documents):
     documents = filter(_relevant_and_recent, documents)
@@ -91,12 +99,12 @@ def add_indico(documents):
         analysis["keywords"] = EXECUTOR.submit(indicoio.keywords, [doc.get("text") for doc in documents], version=1)
         analysis["ner"] = EXECUTOR.submit(indicoio.named_entities, [doc.get("text") for doc in documents], version=2)
 
-        analysis["title_sentiment_hq"] = analysis["title_sentiment_hq"].result()
-        analysis["title_keywords"] = analysis["title_keywords"].result()
-        analysis["title_ner"] = analysis["title_ner"].result()
-        analysis["sentiment_hq"] = analysis["sentiment_hq"].result()
-        analysis["keywords"] = analysis["keywords"].result()
-        analysis["ner"] = analysis["ner"].result()
+        analysis["title_sentiment_hq"] = try_except_result(analysis["title_sentiment_hq"], -1, individual=len(documents) == 1)
+        analysis["title_keywords"] = try_except_result(analysis["title_keywords"], [], individual=len(documents) == 1)
+        analysis["title_ner"] = try_except_result(analysis["title_ner"], defaultdict(list), individual=len(documents) == 1)
+        analysis["sentiment_hq"] = try_except_result(analysis["sentiment_hq"], -1, individual=len(documents) == 1)
+        analysis["keywords"] = try_except_result(analysis["keywords"], [], individual=len(documents) == 1)
+        analysis["ner"] = try_except_result(analysis["ner"], defaultdict(list), individual=len(documents) == 1)
 
         for i in xrange(len(documents)):
             # Title Analysis
