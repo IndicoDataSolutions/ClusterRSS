@@ -1,4 +1,4 @@
-import logging
+import logging, sys
 
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
@@ -29,7 +29,7 @@ class ESConnection(object):
         self.index = index
         self.es = Elasticsearch(hosts=[host], **kwargs)
 
-    def upload(self, documents):
+    def upload(self, documents, attempts = 5):
         """Loads a document object into the Elasticsearch database
 
         Arguments:
@@ -41,26 +41,42 @@ class ESConnection(object):
         # Assign the indices for the bulk call
         for doc in documents:
             doc["_index"] = self.index
-        return bulk(self.es, documents)
+        try:
+            return bulk(self.es, documents)
+        except:
+            if attempts > 0:
+                return self.upload(documents, attempts = attempts - 1)
+            else:
+                return
 
-    def update(self, query, scroll, updater):
+    def update(self, query, scroll, updater, window=500):
         """Updates documents through an updater function passed in"""
-        results = self.es.search(index=self.index, q=query, size=100, scroll=scroll)
+        results = self.es.search(index=self.index, q=query, size=window, scroll=scroll)
         scroll_id = results["_scroll_id"]
 
         # Initial results
         documents = results["hits"]["hits"]
+        total = 0
         while True:
-            es_logger.info("Update in Progress")
-            self._updater(documents, updater)
-            documents = self.es.scroll(scroll_id=scroll_id)["hits"]["hits"]
+            es_logger.info("Update in Progress with {0} documents".format(len(documents)))
+            changed = self._updater(documents, updater)
+            try:
+                bulk(self.es, changed)
+                total += len(documents)
+                documents = self.es.scroll(scroll_id=scroll_id, scroll=scroll)["hits"]["hits"]
+                es_logger.info("Updated {0} documents".format(total))
+            except:
+                import traceback; traceback.print_exc()
             if not documents:
                 break
 
     def _updater(self, documents, updater):
+        changed = []
         for document in documents:
-            document["_source"] = updater(document["_source"])
-        bulk(self.es, documents)
+            changes = updater(document)
+            if changes:
+                changed.append(document)
+        return changed
 
     def search(self, query, limit=100, only_documents=True, **kwargs):
         """Performs a query on the Elasticsearch connection
@@ -100,7 +116,7 @@ class ESConnection(object):
             return self._format_search(results)
         return results
 
-    def delete_by_ids(self, ids, _type):
+    def delete_by_ids(self, ids, _type="document"):
         """Deletes a document by id
         """
         return bulk(self.es, [{

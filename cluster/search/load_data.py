@@ -1,14 +1,13 @@
-import os, re, sys
+import os, re, sys, json
 import datetime, logging
+from multiprocessing import Pool
 
 from picklable_itertools.extras import partition_all
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures
 from dateutil.parser import parse as date_parse
-import requests
 
-import pyexcel.ext.xlsx
-import pyexcel as pe
 from pyexcel_xlsx import get_data
 import indicoio
 
@@ -21,11 +20,12 @@ from .words import cross_reference
 logging.getLogger('requests').setLevel(logging.CRITICAL)
 
 # Processing
-EXECUTOR = ThreadPoolExecutor(max_workers=8)
 ENGLISH_SUMMARIZER = Summary(language="english")
 NOW = datetime.datetime.now()
 ONE_YEAR_AGO = NOW.replace(year = NOW.year - 1)
 DESCRIPTION_THRESHOLD = 600
+NUM_PROCESSES= int(sys.argv[1])
+COMPLETED_PATH = os.path.join(os.path.dirname(__file__), '../../completed.txt')
 
 # Logging
 root = logging.getLogger()
@@ -44,6 +44,8 @@ SP_TICKERS = open(os.path.join(
 FINANCIAL_WORDS = set(json.loads(open(os.path.join(
     os.path.dirname(__file__), "data", "financial_keywords.json"
 )).read()))
+
+es = ESConnection("localhost:9200")
 
 def _not_in_sp500(document):
     in_text = any([re.compile(r'[^a-zA-Z]'+ re.escape(ticker)+ r'[^a-zA-Z]').search(document["text"]) for ticker in SP_TICKERS])
@@ -94,20 +96,22 @@ def try_except_result(future, default, individual=False):
             return [default]
         raise
 
-def add_indico(documents):
+def add_indico(executor, documents):
     documents = filter(_relevant_and_recent, documents)
+    if not documents:
+        return []
     try:
         analysis = {}
-        summaries = [EXECUTOR.submit(ENGLISH_SUMMARIZER.parse, doc.get("text"), sentences=3) for doc in documents]
+        summaries = [executor.submit(ENGLISH_SUMMARIZER.parse, doc.get("text"), sentences=3) for doc in documents]
 
-        analysis["title_sentiment_hq"] = EXECUTOR.submit(indicoio.sentiment_hq, [doc.get("title") for doc in documents])
-        analysis["title_keywords"] = EXECUTOR.submit(indicoio.keywords, [doc.get("title") for doc in documents], version=1)
-        analysis["title_ner"] = EXECUTOR.submit(indicoio.named_entities, [doc.get("title") for doc in documents], version=2)
-        analysis["sentiment_hq"] = EXECUTOR.submit(indicoio.sentiment_hq, [doc.get("text") for doc in documents])
-        analysis["keywords"] = EXECUTOR.submit(indicoio.keywords, [doc.get("text") for doc in documents], version=1)
-        analysis["ner"] = EXECUTOR.submit(indicoio.named_entities, [doc.get("text") for doc in documents], version=2)
+        analysis["title_sentiment_hq"] = executor.submit(indicoio.sentiment_hq, [doc.get("title") for doc in documents])
+        analysis["title_keywords"] = executor.submit(indicoio.keywords, [doc.get("title") for doc in documents], version=1)
+        analysis["title_ner"] = executor.submit(indicoio.named_entities, [doc.get("title") for doc in documents], version=2)
+        analysis["sentiment_hq"] = executor.submit(indicoio.sentiment_hq, [doc.get("text") for doc in documents])
+        analysis["keywords"] = executor.submit(indicoio.keywords, [doc.get("text") for doc in documents], version=1)
+        analysis["ner"] = executor.submit(indicoio.named_entities, [doc.get("text") for doc in documents], version=2)
 
-        individual = len(documents) == 1
+        individual = len(documents) <= 1
         analysis["title_sentiment_hq"] = try_except_result(analysis["title_sentiment_hq"], -1, individual=individual)
         analysis["title_keywords"] = try_except_result(analysis["title_keywords"], [], individual=individual)
         analysis["title_ner"] = try_except_result(analysis["title_ner"], defaultdict(list), individual=individual)
@@ -137,10 +141,18 @@ def add_indico(documents):
         return documents
     except:
         import traceback; traceback.print_exc()
-        if len(documents) == 1:
+        if len(documents) <= 1:
             return []
+
         # Split into batches of 1 and recombine
-        return reduce(lambda x,y: x + y, map(lambda x: add_indico([x]), documents))
+        try:
+            results = []
+            for document in documents:
+                results.extend(add_indico(executor, [document]))
+            return results
+        except:
+            import traceback; traceback.print_exc()
+            return []
 
 def get_all_data_files(current_dir):
     all_files = []
@@ -166,26 +178,47 @@ def read_data_file(data_file):
         return []
 
 def upload_data(es, data_file):
+    indico_executor = ThreadPoolExecutor(max_workers=30)
+    executor = ThreadPoolExecutor(max_workers=5)
     try:
         root.debug("Beginning Processing for {0}".format(data_file))
         all_documents = read_data_file(data_file)
         root.debug("Read Data for {0}".format(data_file))
+        futures = {}
+        root.debug("Adding Indico for {0}".format(data_file))
         for documents in partition_all(20, all_documents):
-            root.debug("Adding Indico for {0}".format(data_file))
-            documents = add_indico(documents)
-            root.debug("Uploading to elasticsearch for {0}".format(data_file))
-            es.upload(documents)
+            futures[executor.submit(add_indico, indico_executor, documents)] = 0
+
+        root.debug("Uploading to elasticsearch for {0}".format(data_file))
+        for future in concurrent.futures.as_completed(futures):
+            es.upload(future.result())
+            del futures[future]
+
+        root.debug("Completed to elasticsearch for {0}".format(data_file))
+        return data_file
     except:
         import traceback; traceback.print_exc()
 
+def process(files):
+    executor = ThreadPoolExecutor(max_workers=4)
+    futures = {executor.submit(upload_data, es, _file): _file for _file in files}
+
+    for future in concurrent.futures.as_completed(futures):
+        with open(COMPLETED_PATH, 'ab') as f:
+            path = future.result()
+            if path:
+                f.write(os.path.basename(path) + "\n")
+            del futures[future]
 
 if __name__ == "__main__":
-    executor = ThreadPoolExecutor(max_workers=4)
-    es = ESConnection("localhost:9200")
     directory = os.path.join(os.path.dirname(__file__), '../../inputxl')
-    files = get_all_data_files(directory)
 
-    futures = []
-    for _file in files:
-        futures.append(executor.submit(upload_data, es, _file))
-    map(lambda x: x.result(), futures)
+    with open(COMPLETED_PATH, 'rb') as f:
+        completed = map(lambda x: x.strip(), f.readlines())
+
+    files = get_all_data_files(directory)
+    files = filter(lambda x: not any([y in x for y in completed]), files)
+
+    p = Pool(NUM_PROCESSES)
+    files = [files[i:i+NUM_PROCESSES] for i in xrange(0, len(files), NUM_PROCESSES)]
+    p.map(process, files)

@@ -13,7 +13,8 @@ class Document(dict):
             "financial": financial,
             "indico": indico,
             "date": date,
-            "_type": _type
+            "_type": _type,
+            "_id": link
         })
 
     def __getattr__(self, key):

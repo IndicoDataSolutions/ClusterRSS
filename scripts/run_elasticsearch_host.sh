@@ -8,4 +8,4 @@ if [ ! -f $DIR/$VERSION/bin/elasticsearch ]; then
     tar -xf $DIR/$VERSION.tar.gz -C $DIR
 fi
 
-$DIR/$VERSION/bin/elasticsearch
+ES_HEAP_SIZE=16g $DIR/$VERSION/bin/elasticsearch
