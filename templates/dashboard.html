@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<!-- jQuery -->
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+
+		<!-- BOOTSTRAP -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+
+		<!-- IONICONS -->
+		<link rel="stylesheet" type="text/css" href="http://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+
+		<!-- Stylesheet -->
+		<style type="text/css"></style>
+		<link rel="stylesheet" type="text/css" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+		<style type="text/css">
+			#dashboard {
+				background: #333;
+				color: white;
+			}
+			h1, h2, hr {
+				font-family: "proxima-nova-300";
+				color: white;
+				border-bottom-color: white;
+			}
+			hr {
+				margin-bottom:0px;
+			}
+			
+			.button a { 
+				font-size: 24px;
+    			vertical-align: middle;
+    			color: #eee; 
+    		}
+			.button:hover a { color: #ccc; }
+			
+			.group {}
+				.group h2 {
+					font-size: 32px;
+				}
+				.group .card {
+					padding: 0px 10px;
+					margin-top: 20px;
+				}
+					.group .card .image-holder img {
+						width: 100%;
+					}
+					.group .card .image-info {
+						background: #eee;
+						color: #555;
+						padding:5px 15px;
+					}
+					.group .card .image-info h3 {
+						margin: 5px 0px;
+					}
+					.group .card .image-info a {
+						color: #555;
+						border-bottom: 1px solid #555;
+						text-decoration: none;
+						font-size: 16px;
+					}
+
+		</style>
+	</head>
+	<body id="dashboard">
+		<div class="container">
+			<div class="row">
+				<h1>
+					<span class="button"><a href="/text-mining"><i class="ion-close-round"></i></a></span>&nbsp;
+					Bookmarks
+				</h1>
+			</div>
+			{% for group in groups %}
+			<div class="group row">
+				<div class="col-xs-12">
+					<div class="row">
+						<h2>{{ group }}</h2>
+						<hr/>
+					</div>
+					<div class="row">
+						{% for bookmark in bookmarks[group] %}
+						<div class="col-sm-4">
+							<div class="card">
+								<div class="row">
+									<div class="image-holder">
+										<img src="{{ bookmark.link }}"/>
+									</div>
+								</div>
+								<div class="row">
+									<div class="image-info">
+										<h3>{{ bookmark.title }}</h3>
+										<p><a target="_blank" href="{{ bookmark.origin }}">Original article</a></p>
+									</div>
+								</div>
+							</div>
+						</div>
+						{% end %}
+					</div>
+				</div>
+			</div>
+			{% end %}
+		</div>
+
+		<link rel="stylesheet" href="{{ static_url('css/font.css') }}"></link>
+		<script src="{{ static_url('js/polyfills.js') }}"></script>
+	</body>
+</html>

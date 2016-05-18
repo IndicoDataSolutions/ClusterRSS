@@ -13,163 +13,12 @@
 
     <!-- SPINNER -->
     <link rel="stylesheet" href="{{ static_url('css/loader.css') }}">
-    
-    <!-- Stylesheet -->
-    <style>
-      body { 
-        margin: 0px;
-        text-align: center; 
-        background: #333;
-      }
 
-      a {
-        font-family: "proxima-nova-400";
-        color: #fff;
-      }
-
-      #tooltip {
-        position: absolute;
-        z-index: 9001;
-        display: none;
-        padding: 8px 14px;
-        border-radius: 3px;
-        border: 2px solid white;
-        background: rgba(0,0,0,0.8);
-        color: white;
-        text-align: left;
-        width: 300px;
-      }
-        #tooltip > p > div > p {
-          padding:10px;
-        }
-
-      #banner {
-        position: absolute;
-        z-index: 9000;
-        top: 64px;
-        left: 0px;
-        right: 0px;
-        background-color: rgba(190,190,190,0.95);
-        display: none;
-        text-align: left;
-        padding:14px 30px;
-        font-size: 18px;
-        transition:500ms right ease-in;
-        -webkit-transition:500ms right ease-in;
-      }
-
-      #query {
-        padding: 12px;
-        padding-left: 30px;
-        text-align: left;
-        font-size: 18px;
-        position: fixed;
-        background: #555;
-        color: white;
-        border-bottom:2px solid #999;
-        top: 0px;
-        left: 0px;
-        right: 0px;
-        z-index: 9999;
-      }
-        .input-box {
-          padding: 8px;
-          background: #eee;
-          color:#555;
-          display: inline-block;
-          border-radius: 2px;
-        }
-        .input-box button {
-          display: inline-block;
-          height: 25px;
-          width: 25px;
-          margin-left: 10px;
-          background: #4c73dd;
-          font-size: 18px;
-          color: white;
-          border: none;
-          border-radius: 100%;
-          cursor: pointer;
-        }
-          .input-box button i {
-            font-size: 16px;
-          }
-        .input-box input {
-          min-width: 400px;
-          background: transparent;
-          margin-left:5px;
-          padding-left: 5px;
-          padding-bottom: 3px;
-          border: 0px solid #333;
-          border-bottom: 2px solid #bbb;
-          font-size: 18px;
-          line-height: 18px;
-          outline: none;
-          transition: all 0.3s linear;
-        }
-        
-        .input-box input:active, .input-box input:focus {
-          border-bottom:2px solid #666;
-        }
-
-      #chart {
-        position: relative;
-        z-index: 8998;
-        transition:500ms all ease-in;
-        -webkit-transition:500ms all ease-in;
-      }
-
-      #info {
-        position: fixed;
-        z-index:8999;
-        width:400px;
-        right:-400px;
-        top:0px;
-        bottom:0px;
-        padding: 100px 35px 30px;
-        box-sizing: border-box;
-        background: #555;
-        color: white;
-        text-align: left;
-        font-family: "proxima-nova-300";
-        transition:500ms all ease-in;
-        -webkit-transition:500ms all ease-in;
-      }
-        #info p {
-          text-align: left;
-        }
-        #info .text {
-          height: 200px;
-          overflow-x: hidden;
-          margin-bottom: 20px;
-        }
-        #info b, #info p { display: inline; }
-        #info b {
-          font-size: 18px;
-          font-family: "proxima-nova-400";
-        }
-        #info p { 
-          font-family: "proxima-nova-100";
-          letter-spacing: 0.025em; 
-        }
-
-
-        #info .text::-webkit-scrollbar {
-          -webkit-appearance: none;
-          width: 7px;
-        }
-        #info .text::-webkit-scrollbar-thumb {
-          border-radius: 4px;
-          background-color: rgba(0,0,0,.5);
-          -webkit-box-shadow: 0 0 1px rgba(255,255,255,.5);
-        }
-
-      .spinner-holder {
-        margin-top:100px;
-        display: none;
-      }
-    </style>
+    <!-- Ionicons -->
     <link rel="stylesheet" type="text/css" href="https://code.ionicframework.com/ionicons/2.0.1/css/ionicons.min.css">
+    
+    <!-- User Stylesheet -->
+    <link rel="stylesheet" type="text/css" href="{{ static_url('css/main.css') }}">
   </head>
   <body id="app">
     <div>
@@ -177,6 +26,8 @@
         <div class="input-box">
           <input type="text" name="query" placeholder="Search trends by keyword..."><button type="submit"><i class="ion-android-search"></i></button>
         </div>
+        <a href="/text-mining/bookmarks"><div id="bookmarks" class="query-button">Bookmarks</div></a>
+        <div id="zoomOut" class="query-button">Zoom to top</div>
       </form>
       
       <div class="spinner-holder">
@@ -194,7 +45,19 @@
 
       <div id="info">
         <div class="title"><b><a href=""></a></b></div><br>
-        <div class="sentiment"></div>
+        <div class="meta">
+          <div id="date-holder" class="holder">
+            <span class="date">10/14/1066</span>
+          </div>
+          <div id="length-holder" class="holder">
+            <span class="length">1000</span> Words
+          </div>
+        </div>
+        <div class="sentiment-bar">
+          <div class="data">
+            <span class="label"></span>
+          </div>
+        </div>
         <div class="keywords"></div>
         <div class="people"></div>
         <div class="places"></div>

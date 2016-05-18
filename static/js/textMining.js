@@ -15,13 +15,6 @@ function groupBy( clusters , sortingFunction ) {
   return groupedClusters
 }
 
-// $.get('/text-mining/query', function(data) {
-//   data = JSON.parse(data);
-//   data.forEach(function(group, i) {
-//     $('#query > select[name="group"]').append('<option value="'+group+'"]>'+group+'</option>')
-//   });
-// });
-
 $('#query').submit(function(e) {
   e.preventDefault();
 
@@ -324,8 +317,10 @@ function drawAll(error, dataset) {
 
   function slideInfoOut(node) {
     updateText(node, ['keywords', 'people', 'places', 'organizations'], '#info');
+    updateBar('#info .sentiment-bar', node.indico.sentiment)
     $('#info .text p').html(node.summary);
-    $('#info .sentiment').html('<b>'+((node.indico.sentiment*100).toFixed(1)).toString()+'% Positive</b><br><br>');
+    $('#info .length').text(node.text.split(' ').length);
+    $('#info .date').text(node.date);
 
     $('#info .title').find('a').attr('href', node.link);
     $('#info .title').find('a').text(node.title);
@@ -424,8 +419,27 @@ function drawAll(error, dataset) {
     }
   }
 
+  function updateBar(barSelector, percent) {
+    var $barHolder = $(barSelector)
+    var $label = $barHolder.find('.label');
+
+    $label.hide();
+    var textPercent = parseInt(percent*100).toString()+'%';
+    $barHolder.find('.data').width(parseInt(percent*100).toString()+'%');
+    $label.html(textPercent+' positive');
+    
+    if (percent > 0.5) {
+      var labelPosRight = '15px', color = '#FFF', font = '"proxima-nova-400"';
+    } else {
+      var labelPosRight = '-100px', color = '#4C73DD', font = '"proxima-nova-600"';
+    }
+
+    $label.css({ 'right': labelPosRight, 'color': color, 'font-family': font });
+    $label.fadeIn('fast');
+  }
+
   function setTooltip (node, mouseX, mouseY) {
-    if (node.holder == true || node.top == true) {
+    if (node.holder == true || node.top == true || Object.is(node, {})) {
       $('#tooltip').stop(true, true);
       $('#tooltip').hide();
       return;
@@ -449,12 +463,10 @@ function drawAll(error, dataset) {
 
   function setBanner(node) {
     if (node.top == true || node.cluster == undefined) {
-      $('#banner').stop(true, true);
-      $('#banner').fadeOut();
+      $('#banner').hide();
       return
     } else {
-      $('#banner').stop(true, true);
-      $('#banner').fadeIn();
+      $('#banner').show();
     }
 
     var clusterIndico = findCluster(node);
@@ -511,6 +523,9 @@ function drawAll(error, dataset) {
         }
         setBanner(currentNode);
         setTooltip(currentNode, e.clientX, e.clientY);
+      } else {
+        setBanner({});
+        setTooltip({}, 0, 0);
       }
     }
 
@@ -519,6 +534,10 @@ function drawAll(error, dataset) {
   ////////////////////////////////////////////////////////////// 
   ///////////////////// Zoom Function //////////////////////////
   ////////////////////////////////////////////////////////////// 
+
+  $('#zoomOut').click(function() {
+    zoomToCanvas(root);
+  });
   
   //Based on the generous help by Stephan Smola
   //http://bl.ocks.org/smoli/d7e4f9199c15d71258b5
@@ -532,6 +551,14 @@ function drawAll(error, dataset) {
   //Create the interpolation function between current view and the clicked on node
   function zoomToCanvas(focusNode) {
     focus = focusNode;
+
+    if (focusNode == root) {
+      slideInfoIn();
+      setBanner({});
+      $('#zoomOut').animate({ 'opacity': 0});
+    } else {
+      $('#zoomOut').animate({ 'opacity': 1});
+    }
     
     $('#tooltip').hide();
     drawText = false;

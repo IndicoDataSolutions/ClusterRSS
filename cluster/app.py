@@ -15,7 +15,12 @@ import tornado.web
 from scipy.spatial.distance import cdist
 import numpy as np
 
-from cluster.utils import make_feature_vectors, DBScanClustering
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+import indicoio
+
+from cluster.models import Bookmark, Base
+from cluster.utils import make_feature_vectors, DBScanClustering, highest_scores
 from .search.client import ESConnection
 from .errors import ClusterError
 
@@ -51,6 +56,8 @@ class QueryHandler(tornado.web.RequestHandler):
             es = ESConnection("http://localhost:9200", index='indico-cluster-data')
             data = json.loads(self.request.body)
             query = data.get('query')
+
+            self.set_secure_cookie('current_search', query)
 
             entries = es.search(query, limit=500)
             if len(entries) < 5:
@@ -172,10 +179,41 @@ class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render('text-mining.html', DEBUG=DEBUG)
 
+class BookmarkHandler(tornado.web.RequestHandler):
+
+    def get(self):
+        """shows added images"""
+        session = DBSession()
+        bookmarks = session.query(Bookmark.search).distinct(Bookmark.search)
+        query_groups = [bookmark[0] for bookmark in bookmarks]
+        print query_groups
+        bookmarks = {group: session.query(Bookmark).filter_by(search=group).all() for group in query_groups}
+        print bookmarks
+        session.close()
+        self.render('dashboard.html', bookmarks=bookmarks, groups=query_groups)
+
+    def post(self):
+        """add image link to bookmarks"""
+        data = json.loads(self.request.body)
+        search = self.get_secure_cookie('current_search')
+        print search
+        link, title, key, origin  = data['link'], data['title'], data['key'], data['origin']
+        print self.request.body
+        try:
+            bookmark = Bookmark(link=link, title=title, key=key, origin=origin, search=search)
+            session = DBSession()
+            session.add(bookmark)
+            session.commit()
+            session.close()
+            self.write(json.dumps({'success': True, 'message': 'Successfully added new bookmark!'}))
+        except Exception as e:
+            self.write(json.dumps({'success': False, 'message': 'Something went wrong, you may already have that link bookmarked.'}))
+
+
 # NOTE: nginx will be routing /text-mining requests to this app. For example, posts in javascript
 #       need to specify /text-mining/query, not /query
 application = tornado.web.Application(
-    [(r"/text-mining", MainHandler), (r"/text-mining/query", QueryHandler)],
+    [(r"/text-mining", MainHandler), (r"/text-mining/bookmarks", BookmarkHandler), (r"/text-mining/query", QueryHandler)],
     template_path=abspath(os.path.join(__file__, "../../templates")),
     static_url_prefix="/text-mining/static/",
     static_path=abspath(os.path.join(__file__, "../../static")),
