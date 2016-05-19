@@ -282,7 +282,7 @@ function drawAll(error, dataset) {
       chosenContext.fill();
       chosenContext.stroke();
 
-      if (node.cluster == focus.cluster && !node.holder && drawText) {
+      if (node.cluster == focus.cluster && !node.holder) {
         wrapText(context, node);
       }
 
@@ -350,7 +350,6 @@ function drawAll(error, dataset) {
     //Our map uses these rgb strings as keys to nodes.
     var colString = "rgb(" + col[0] + "," + col[1] + ","+ col[2] + ")";
     currentNode = colToCircle[colString];
-    console.log(currentNode);
 
     // We actually only need to draw the hidden canvas when there is an interaction. 
     // This sketch can draw it on each loop, but that is only for demonstration.
@@ -374,7 +373,7 @@ function drawAll(error, dataset) {
         zoomToCanvas(root);
         slideInfoIn();
       }
-      currentNode.selected = true;
+      currentNode.selected = (!currentNode.holder)? true : false;
     } else {
       zoomToCanvas(root);
       slideInfoIn();
@@ -462,7 +461,7 @@ function drawAll(error, dataset) {
   }
 
   function setBanner(node) {
-    if (node.top == true || node.cluster == undefined) {
+    if (node.top == true || !node.cluster || Object.is(node, {})) {
       $('#banner').hide();
       return
     } else {
@@ -470,8 +469,6 @@ function drawAll(error, dataset) {
     }
 
     var clusterIndico = findCluster(node);
-    console.log(clusterIndico);
-
     var info = clusterIndico.info.keywords.join(', ');
 
     $('#banner > span').text(info);
@@ -496,9 +493,7 @@ function drawAll(error, dataset) {
 
     if (!Object.is(oldNode, currentNode)) {
       oldNode = currentNode;
-      
-      $('#tooltip').hide();
-      $('#banner').fadeOut();
+
       // We actually only need to draw the hidden canvas when there is an interaction. 
       // This sketch can draw it on each loop, but that is only for demonstration. 
       for (var i=0; i<nodeCount; i++) {
@@ -517,13 +512,16 @@ function drawAll(error, dataset) {
         currentNode.border = true;
         activeCluster = (currentNode.top)? -1 : currentNode.cluster;
 
-        if (currentNode.cluster != undefined) {
-          var cluster = findCluster(currentNode);
-          cluster.border = true;
-        }
         setBanner(currentNode);
         setTooltip(currentNode, e.clientX, e.clientY);
+
+        if (currentNode.cluster != undefined) {
+          var cluster = findCluster(currentNode);
+          setBanner(cluster);
+          cluster.border = true;
+        }
       } else {
+        activeCluster = -1;
         setBanner({});
         setTooltip({}, 0, 0);
       }

@@ -108,8 +108,12 @@ a {
     margin-left: 5px;
     cursor: pointer;
   }
+  a#bookmarks { 
+    text-decoration: none;
+    float: right;
+    margin-right: 30px;
+  }
   #zoomOut { opacity: 0; }
-  #bookmarks a { text-decoration: none; }
 
 #chart {
   position: relative;
