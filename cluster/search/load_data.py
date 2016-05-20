@@ -22,7 +22,7 @@ logging.getLogger('requests').setLevel(logging.CRITICAL)
 # Processing
 ENGLISH_SUMMARIZER = Summary(language="english")
 NOW = datetime.datetime.now()
-ONE_YEAR_AGO = NOW.replace(year = NOW.year - 1)
+ONE_YEAR_AGO = NOW.replace(year = NOW.year - 1).strftime("%s")
 DESCRIPTION_THRESHOLD = 600
 NUM_PROCESSES= int(sys.argv[1])
 COMPLETED_PATH = os.path.join(os.path.dirname(__file__), '../../completed.txt')
@@ -58,7 +58,7 @@ def _relevant_and_recent(document):
             return False
         if not document.get("text") or not document.get("title"):
             return False
-        if date_parse(document.get("date")) < ONE_YEAR_AGO and _not_in_sp500(document):
+        if document.get("date") < ONE_YEAR_AGO and _not_in_sp500(document):
             return False
     except:
         return False
@@ -69,7 +69,7 @@ def parse_obj_to_document(obj):
     title = obj.get("name_post", obj.get("name_story"))
     link = obj.get("url_post", obj.get("url_story"))
     tags = [obj.get("name_categorie", obj.get("name_topics"))]
-    pub_date = obj.get("date_published", obj.get("date_published_story"))
+    pub_date = date_parse(obj.get("date_published", obj.get("date_published_story")))
 
     # Remove CSS & HTML residue
     text = re.sub(r"<[^>]*>", "", text)
@@ -83,7 +83,7 @@ def parse_obj_to_document(obj):
         link=link,
         tags=tags,
         length=len(text),
-        date=pub_date,
+        date=pub_date.strftime("%s"),
         indico={},
         financial=cross_reference(text, FINANCIAL_WORDS)
     )

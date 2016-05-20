@@ -2,6 +2,7 @@ import json, os
 
 from client import ESConnection
 from .words import cross_reference
+from dateutil.parser import parse as date_parse
 
 FINANCIAL_WORDS = set(json.loads(open(os.path.join(
     os.path.dirname(__file__), "data", "financial_keywords.json"
@@ -31,11 +32,19 @@ def convert_link_to_id(doc):
         return True
     return False
 
+def convert_date(doc):
+    date = doc["_source"]["date"]
+    if type(date) == int or date.isdigit():
+        return False
+    doc["_source"]["date"] = date_parse(date).strftime("%s")
+    return True
+
 def update(doc):
     changed = False
     # changed = add_financial_keywords(doc)
     # changed = dedup(doc) or changed
-    changed = convert_link_to_id(doc) or changed
+    # changed = convert_link_to_id(doc) or changed
+    changed = convert_date(doc) or changed
     return changed
 
 if __name__ == "__main__":
