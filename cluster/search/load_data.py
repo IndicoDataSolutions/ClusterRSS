@@ -7,9 +7,11 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
 from dateutil.parser import parse as date_parse
+from urlparse import urlparse
 
 from pyexcel_xlsx import get_data
 import indicoio
+from indicoapi.ML.custom.utils.finance.model import FinanceEmbeddingModel
 
 from .client import ESConnection
 from .schema import Document
@@ -26,14 +28,19 @@ ONE_YEAR_AGO = NOW.replace(year = NOW.year - 1).strftime("%s")
 DESCRIPTION_THRESHOLD = 600
 NUM_PROCESSES= int(sys.argv[1])
 COMPLETED_PATH = os.path.join(os.path.dirname(__file__), '../../completed.txt')
+FINANCE_EMBEDDING = FinanceEmbeddingModel()
 
 # Logging
-root = logging.getLogger()
+root = logging.getLogger("elasticsearch.load_data")
 root.setLevel(logging.DEBUG)
+fileHandler = logging.FileHandler("output.log")
+fileHandler.setLevel(logging.DEBUG)
+root.addHandler(fileHandler)
 
-ch = logging.StreamHandler(sys.stdout)
-ch.setLevel(logging.DEBUG)
-root.addHandler(ch)
+errorLogger = logging.getLogger("error")
+fileHandler = logging.FileHandler("error.log")
+fileHandler.setLevel(logging.INFO)
+errorLogger.addHandler(fileHandler)
 
 # Indico
 indicoio.config.cloud = 'themeextraction'
@@ -45,22 +52,24 @@ FINANCIAL_WORDS = set(json.loads(open(os.path.join(
     os.path.dirname(__file__), "data", "financial_keywords.json"
 )).read()))
 
+SP500_REGEX = [re.compile(r'[^a-zA-Z]'+ re.escape(ticker)+ r'[^a-zA-Z]') for ticker in SP_TICKERS]
+
 es = ESConnection("localhost:9200")
 
-def _not_in_sp500(document):
-    in_text = any([re.compile(r'[^a-zA-Z]'+ re.escape(ticker)+ r'[^a-zA-Z]').search(document["text"]) for ticker in SP_TICKERS])
-    in_title = any([re.compile(r'[^a-zA-Z]'+ re.escape(ticker)+ r'[^a-zA-Z]').search(document["title"]) for ticker in SP_TICKERS])
-    return not(in_text or in_title)
+def _in_sp500(document):
+    return any(map(lambda x: x.search(document["text"]), SP500_REGEX)) or \
+           any(map(lambda x: x.search(document["title"]), SP500_REGEX))
 
 def _relevant_and_recent(document):
-    try:
-        if not document.link or "Service Unavailable" in document.text:
-            return False
-        if not document.get("text") or not document.get("title"):
-            return False
-        if document.get("date") < ONE_YEAR_AGO and _not_in_sp500(document):
-            return False
-    except:
+    if not document.link or "Service Unavailable" in document.text:
+        return False
+    if not document.get("text") or not document.get("title"):
+        return False
+    if _in_sp500(document):
+        return True
+    if document.get("date", "") == "":
+        return True
+    if document.get("date") < ONE_YEAR_AGO:
         return False
     return True
 
@@ -69,7 +78,6 @@ def parse_obj_to_document(obj):
     title = obj.get("name_post", obj.get("name_story"))
     link = obj.get("url_post", obj.get("url_story"))
     tags = [obj.get("name_categorie", obj.get("name_topics"))]
-    pub_date = date_parse(obj.get("date_published", obj.get("date_published_story")))
 
     # Remove CSS & HTML residue
     text = re.sub(r"<[^>]*>", "", text)
@@ -77,15 +85,29 @@ def parse_obj_to_document(obj):
     text = re.sub(r"[[\w\-]*\s*[\.[\w\-]*\s*]*]*\s*{[^}]*}", "", text)
     text = text.encode("ascii", "ignore").decode("ascii", "ignore")
 
+    try:
+        source = urlparse(link).netloc.split(".")[-2]
+    except:
+        import traceback; traceback.print_exc()
+        errorLogger.info("Link failed for object: {0}".format(obj.keys))
+        source = link
+
+    try:
+        pub_date = date_parse(obj.get("date_published", obj.get("date_published_story", obj.get("date_e_post")))).strftime("%s")
+    except:
+        errorLogger.info("Date failed for object: {0}".format(obj.keys()))
+        pub_date = ""
+
     return Document(
         title=title,
         text=text,
         link=link,
         tags=tags,
         length=len(text),
-        date=pub_date.strftime("%s"),
+        date=pub_date,
         indico={},
-        financial=cross_reference(text, FINANCIAL_WORDS)
+        financial=cross_reference(text, FINANCIAL_WORDS),
+        source=source
     )
 
 def try_except_result(future, default, individual=False):
@@ -102,14 +124,18 @@ def add_indico(executor, documents):
         return []
     try:
         analysis = {}
-        summaries = [executor.submit(ENGLISH_SUMMARIZER.parse, doc.get("text"), sentences=3) for doc in documents]
+        texts = [doc.get("text") for doc in documents]
+        titles = [doc.get("title") for doc in documents]
 
-        analysis["title_sentiment_hq"] = executor.submit(indicoio.sentiment_hq, [doc.get("title") for doc in documents])
-        analysis["title_keywords"] = executor.submit(indicoio.keywords, [doc.get("title") for doc in documents], version=1)
-        analysis["title_ner"] = executor.submit(indicoio.named_entities, [doc.get("title") for doc in documents], version=2)
-        analysis["sentiment_hq"] = executor.submit(indicoio.sentiment_hq, [doc.get("text") for doc in documents])
-        analysis["keywords"] = executor.submit(indicoio.keywords, [doc.get("text") for doc in documents], version=1)
-        analysis["ner"] = executor.submit(indicoio.named_entities, [doc.get("text") for doc in documents], version=2)
+        summaries = [executor.submit(ENGLISH_SUMMARIZER.parse, text, sentences=3) for text in texts]
+        embeddings = [executor.submit(FINANCE_EMBEDDING._transform, text) for text in texts]
+
+        analysis["title_sentiment_hq"] = executor.submit(indicoio.sentiment_hq, titles)
+        analysis["title_keywords"] = executor.submit(indicoio.keywords, titles, version=1)
+        analysis["title_ner"] = executor.submit(indicoio.named_entities, titles, version=2)
+        analysis["sentiment_hq"] = executor.submit(indicoio.sentiment_hq, texts)
+        analysis["keywords"] = executor.submit(indicoio.keywords, texts, version=1)
+        analysis["ner"] = executor.submit(indicoio.named_entities, texts, version=2)
 
         individual = len(documents) <= 1
         analysis["title_sentiment_hq"] = try_except_result(analysis["title_sentiment_hq"], -1, individual=individual)
@@ -138,10 +164,14 @@ def add_indico(executor, documents):
             # Summary
             documents[i]["summary"] = summaries[i].result()
 
+            # Finance Embeddings
+            documents[i]["finance_embeddings"] = embeddings[i].result().tostring()
+
         return documents
     except:
         import traceback; traceback.print_exc()
         if len(documents) <= 1:
+            errorLogger.info("Adding indico failed for document: {0}".format(documents))
             return []
 
         # Split into batches of 1 and recombine
@@ -175,29 +205,31 @@ def read_data_file(data_file):
         return documents
     except:
         import traceback; traceback.print_exc()
+        errorLogger.info("File reading failed: {0}".format(data_file))
         return []
 
 def upload_data(es, data_file):
     indico_executor = ThreadPoolExecutor(max_workers=30)
     executor = ThreadPoolExecutor(max_workers=5)
     try:
-        root.debug("Beginning Processing for {0}".format(data_file))
+        root.info("Beginning Processing for {0}".format(data_file))
         all_documents = read_data_file(data_file)
-        root.debug("Read Data for {0}".format(data_file))
+        root.info("Read Data for {0}".format(data_file))
         futures = {}
-        root.debug("Adding Indico for {0}".format(data_file))
+        root.info("Adding Indico for {0}".format(data_file))
         for documents in partition_all(20, all_documents):
             futures[executor.submit(add_indico, indico_executor, documents)] = 0
 
-        root.debug("Uploading to elasticsearch for {0}".format(data_file))
+        root.info("Uploading to elasticsearch for {0}".format(data_file))
         for future in concurrent.futures.as_completed(futures):
             es.upload(future.result())
             del futures[future]
 
-        root.debug("Completed to elasticsearch for {0}".format(data_file))
-        return data_file
+        root.info("Completed to elasticsearch for {0}".format(data_file))
+        return data_file, len(all_documents) > 0
     except:
         import traceback; traceback.print_exc()
+        return "", False
 
 def process(files):
     executor = ThreadPoolExecutor(max_workers=4)
@@ -205,8 +237,8 @@ def process(files):
 
     for future in concurrent.futures.as_completed(futures):
         with open(COMPLETED_PATH, 'ab') as f:
-            path = future.result()
-            if path:
+            path, success = future.result()
+            if success:
                 f.write(os.path.basename(path) + "\n")
             del futures[future]
 
