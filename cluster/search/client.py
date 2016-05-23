@@ -42,8 +42,9 @@ class ESConnection(object):
         for doc in documents:
             doc["_index"] = self.index
         try:
-            return bulk(self.es, documents)
+            return bulk(self.es, map(lambda x: x.prepare(), documents))
         except:
+            import traceback; traceback.print_exc()
             if attempts > 0:
                 return self.upload(documents, attempts = attempts - 1)
             else:

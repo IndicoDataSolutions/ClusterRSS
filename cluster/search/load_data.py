@@ -1,6 +1,7 @@
 import os, re, sys, json
 import datetime, logging
 from multiprocessing import Pool
+import time
 
 from picklable_itertools.extras import partition_all
 from collections import defaultdict
@@ -19,7 +20,8 @@ from .summary import Summary
 from .words import cross_reference
 
 # Turn down requests log verbosity
-logging.getLogger('requests').setLevel(logging.CRITICAL)
+logging.getLogger('requests').setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 # Processing
 ENGLISH_SUMMARIZER = Summary(language="english")
@@ -32,7 +34,7 @@ FINANCE_EMBEDDING = FinanceEmbeddingModel()
 
 # Logging
 root = logging.getLogger("elasticsearch.load_data")
-root.setLevel(logging.DEBUG)
+root.setLevel(logging.INFO)
 fileHandler = logging.FileHandler("output.log")
 fileHandler.setLevel(logging.DEBUG)
 root.addHandler(fileHandler)
@@ -89,13 +91,13 @@ def parse_obj_to_document(obj):
         source = urlparse(link).netloc.split(".")[-2]
     except:
         import traceback; traceback.print_exc()
-        errorLogger.info("Link failed for object: {0}".format(obj.keys))
+        errorLogger.debug("Link failed for object: {0}".format(obj.keys))
         source = link
 
     try:
         pub_date = date_parse(obj.get("date_published", obj.get("date_published_story", obj.get("date_e_post")))).strftime("%s")
     except:
-        errorLogger.info("Date failed for object: {0}".format(obj.keys()))
+        errorLogger.debug("Date failed for object: {0}".format(obj.keys()))
         pub_date = ""
 
     return Document(
@@ -110,13 +112,17 @@ def parse_obj_to_document(obj):
         source=source
     )
 
-def try_except_result(future, default, individual=False):
+def try_except_result(future, rerun, data, default, individual=False, sleep=10):
     try:
         return future.result()
-    except:
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        if "Gateway" in str(e):
+            time.sleep(sleep)
+            return try_except_result(rerun(data), rerun, data, default, individual=False, sleep=sleep*2)
         if individual:
             return [default]
-        raise
+        return [try_except_result(rerun([doc]), rerun, [doc], default, individual=True) for doc in data]
 
 def add_indico(executor, documents):
     documents = filter(_relevant_and_recent, documents)
@@ -130,20 +136,27 @@ def add_indico(executor, documents):
         summaries = [executor.submit(ENGLISH_SUMMARIZER.parse, text, sentences=3) for text in texts]
         embeddings = [executor.submit(FINANCE_EMBEDDING._transform, text) for text in texts]
 
-        analysis["title_sentiment_hq"] = executor.submit(indicoio.sentiment_hq, titles)
-        analysis["title_keywords"] = executor.submit(indicoio.keywords, titles, version=1)
-        analysis["title_ner"] = executor.submit(indicoio.named_entities, titles, version=2)
-        analysis["sentiment_hq"] = executor.submit(indicoio.sentiment_hq, texts)
-        analysis["keywords"] = executor.submit(indicoio.keywords, texts, version=1)
-        analysis["ner"] = executor.submit(indicoio.named_entities, texts, version=2)
+        title_sentiment_hq = lambda data: executor.submit(indicoio.sentiment_hq, data)
+        title_keywords = lambda data: executor.submit(indicoio.keywords, data, version=1)
+        title_ner = lambda data: executor.submit(indicoio.named_entities, data, version=2)
+        sentiment_hq = lambda data: executor.submit(indicoio.sentiment_hq, data)
+        keywords = lambda data: executor.submit(indicoio.keywords, data, version=1)
+        ner = lambda data: executor.submit(indicoio.named_entities, data, version=2)
+
+        analysis["title_sentiment_hq"] = title_sentiment_hq(titles)
+        analysis["title_keywords"] = title_keywords(titles)
+        analysis["title_ner"] = title_ner(titles)
+        analysis["sentiment_hq"] = sentiment_hq(texts)
+        analysis["keywords"] = keywords(texts)
+        analysis["ner"] = ner(texts)
 
         individual = len(documents) <= 1
-        analysis["title_sentiment_hq"] = try_except_result(analysis["title_sentiment_hq"], -1, individual=individual)
-        analysis["title_keywords"] = try_except_result(analysis["title_keywords"], [], individual=individual)
-        analysis["title_ner"] = try_except_result(analysis["title_ner"], defaultdict(list), individual=individual)
-        analysis["sentiment_hq"] = try_except_result(analysis["sentiment_hq"], -1, individual=individual)
-        analysis["keywords"] = try_except_result(analysis["keywords"], [], individual=individual)
-        analysis["ner"] = try_except_result(analysis["ner"], defaultdict(list), individual=individual)
+        analysis["title_sentiment_hq"] = try_except_result(analysis["title_sentiment_hq"], title_sentiment_hq, titles, -1, individual=individual)
+        analysis["title_keywords"] = try_except_result(analysis["title_keywords"], title_keywords, titles, [], individual=individual)
+        analysis["title_ner"] = try_except_result(analysis["title_ner"], title_ner, titles, defaultdict(list), individual=individual)
+        analysis["sentiment_hq"] = try_except_result(analysis["sentiment_hq"], sentiment_hq, texts, -1, individual=individual)
+        analysis["keywords"] = try_except_result(analysis["keywords"], keywords, texts, [], individual=individual)
+        analysis["ner"] = try_except_result(analysis["ner"], ner, texts, defaultdict(list), individual=individual)
 
         for i in xrange(len(documents)):
             # Title Analysis
@@ -165,24 +178,13 @@ def add_indico(executor, documents):
             documents[i]["summary"] = summaries[i].result()
 
             # Finance Embeddings
-            documents[i]["finance_embeddings"] = embeddings[i].result().tostring()
+            documents[i]["finance_embeddings"] = json.dumps(embeddings[i].result().tolist())
 
         return documents
     except:
-        import traceback; traceback.print_exc()
-        if len(documents) <= 1:
-            errorLogger.info("Adding indico failed for document: {0}".format(documents))
-            return []
-
-        # Split into batches of 1 and recombine
-        try:
-            results = []
-            for document in documents:
-                results.extend(add_indico(executor, [document]))
-            return results
-        except:
-            import traceback; traceback.print_exc()
-            return []
+        import traceback;
+        errorLogger.info(traceback.format_exc())
+        return []
 
 def get_all_data_files(current_dir):
     all_files = []
@@ -209,8 +211,8 @@ def read_data_file(data_file):
         return []
 
 def upload_data(es, data_file):
-    indico_executor = ThreadPoolExecutor(max_workers=30)
-    executor = ThreadPoolExecutor(max_workers=5)
+    indico_executor = ThreadPoolExecutor(max_workers=4)
+    executor = ThreadPoolExecutor(max_workers=4)
     try:
         root.info("Beginning Processing for {0}".format(data_file))
         all_documents = read_data_file(data_file)
@@ -232,7 +234,7 @@ def upload_data(es, data_file):
         return "", False
 
 def process(files):
-    executor = ThreadPoolExecutor(max_workers=4)
+    executor = ThreadPoolExecutor(max_workers=2)
     futures = {executor.submit(upload_data, es, _file): _file for _file in files}
 
     for future in concurrent.futures.as_completed(futures):
