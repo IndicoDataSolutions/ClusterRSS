@@ -20,13 +20,16 @@ python -c "import nltk; nltk.download('punkt')"
 git config --global user.email "contact@indico.io"
 git config --global user.name "indico"
 
+cd ~
 git clone https://$GITHUB_ACCESS_TOKEN@github.com/IndicoDataSolutions/IndicoApi.git
 cd IndicoApi && sudo python setup.py develop
 sudo -E python ./scripts/data/unpack.py --api=custom
 
+cd ~
 git clone https://$GITHUB_ACCESS_TOKEN@github.com/IndicoDataSolutions/IndicoIo-Python.git
-cd IndicoIo-Python && sudo python setup.py develop && cd ..
+cd IndicoIo-Python && sudo python setup.py develop && cd ~
 
+cd ~
 git clone https://$GITHUB_ACCESS_TOKEN@github.com/IndicoDataSolutions/ClusterRSS.git
 cd ClusterRSS
 sudo python setup.py develop
