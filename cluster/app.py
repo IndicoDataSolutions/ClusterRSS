@@ -15,11 +15,21 @@ import tornado.web
 from scipy.spatial.distance import cdist
 import numpy as np
 
-from cluster.utils import make_feature_vectors, DBScanClustering
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+import indicoio
+
+from cluster.models import Bookmark, Base
+from cluster.utils import make_feature_vectors, DBScanClustering, highest_scores
 from .search.client import ESConnection
 from .errors import ClusterError
 
 DEBUG = os.getenv('DEBUG', True) != 'False'
+
+# SETTING UP SQLAlchemy
+engine = create_engine('sqlite:///' + abspath(os.path.join(__file__, "../../text-mining.db")))
+Base.metadata.bind = engine
+DBSession = sessionmaker(bind=engine)
 
 # TODO - ensure these include all that they should
 INDICO_VALUES = ['keywords', 'title_keywords', 'people', 'places', 'organizations']
@@ -52,6 +62,8 @@ class QueryHandler(tornado.web.RequestHandler):
             data = json.loads(self.request.body)
             query = data.get('query')
 
+            self.set_secure_cookie('current_search', query)
+
             entries = es.search(query, limit=500)
             if len(entries) < 5:
                 self.write(json.dumps({'error':'bad query'}))
@@ -67,7 +79,6 @@ class QueryHandler(tornado.web.RequestHandler):
 
             features_matrix = [entry['text'] for entry in entries]
             try:
-                print features_matrix[0:5]
                 feature_vectors = make_feature_vectors(features_matrix, "tf-idf")
                 if not feature_vectors.shape[0]:
                     raise Exception('empty results')
@@ -78,7 +89,6 @@ class QueryHandler(tornado.web.RequestHandler):
                 return
 
 
-            # for i in [.7, .6, .5, .4, .3, .2, .1]:
             values = {}
             for i in [.1, .2, .3, .4, .5, .6, .7, .8, .9]:
                 all_clusters, all_similarities = DBScanClustering(feature_vectors, algorithm="brute", metric="cosine", eps=i)
@@ -141,7 +151,7 @@ class QueryHandler(tornado.web.RequestHandler):
                 cluster_info['places'] = create_full_cluster_list(cluster_info, 'places')
                 cluster_info['organizations'] = create_full_cluster_list(cluster_info, 'organizations')
 
-                all_keywords = create_full_cluster_dict(cluster_info, 'keywords')
+                all_keywords = create_full_cluster_dict(cluster_info, 'title_keywords')
                 sorted_keywords = sorted(all_keywords.items(), key=lambda k: k[1])
                 cluster_info['keywords'] = sorted_keywords[-min(10, len(sorted_keywords)):]
                 keywords_master_list.extend([val[0] for val in cluster_info['keywords'] if val[0] != "Shutterstock"])
@@ -172,10 +182,37 @@ class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render('text-mining.html', DEBUG=DEBUG)
 
+class BookmarkHandler(tornado.web.RequestHandler):
+
+    def get(self):
+        """shows added images"""
+        session = DBSession()
+        bookmarks = session.query(Bookmark.search).distinct(Bookmark.search)
+        query_groups = [bookmark[0] for bookmark in bookmarks]
+        bookmarks = {group: session.query(Bookmark).filter_by(search=group).all() for group in query_groups}
+        session.close()
+        self.render('dashboard.html', bookmarks=bookmarks, groups=query_groups)
+
+    def post(self):
+        """add image link to bookmarks"""
+        data = json.loads(self.request.body)
+        search = self.get_secure_cookie('current_search')
+        link, title, key, origin  = data['link'], data['title'], data['key'], data['origin']
+        try:
+            bookmark = Bookmark(link=link, title=title, key=key, origin=origin, search=search)
+            session = DBSession()
+            session.add(bookmark)
+            session.commit()
+            session.close()
+            self.write(json.dumps({'success': True, 'message': 'Successfully added new bookmark!'}))
+        except Exception as e:
+            self.write(json.dumps({'success': False, 'message': 'Something went wrong, you may already have that link bookmarked.'}))
+
+
 # NOTE: nginx will be routing /text-mining requests to this app. For example, posts in javascript
 #       need to specify /text-mining/query, not /query
 application = tornado.web.Application(
-    [(r"/text-mining", MainHandler), (r"/text-mining/query", QueryHandler)],
+    [(r"/text-mining", MainHandler), (r"/text-mining/bookmarks", BookmarkHandler), (r"/text-mining/query", QueryHandler)],
     template_path=abspath(os.path.join(__file__, "../../templates")),
     static_url_prefix="/text-mining/static/",
     static_path=abspath(os.path.join(__file__, "../../static")),
