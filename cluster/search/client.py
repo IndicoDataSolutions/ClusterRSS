@@ -60,7 +60,7 @@ class ESConnection(object):
         total = 0
         while True:
             es_logger.info("Update in Progress with {0} documents".format(len(documents)))
-            changed = self._updater(documents, updater)
+            changed = updater(documents)
             try:
                 bulk(self.es, changed)
                 total += len(documents)
@@ -70,14 +70,6 @@ class ESConnection(object):
                 import traceback; traceback.print_exc()
             if not documents:
                 break
-
-    def _updater(self, documents, updater):
-        changed = []
-        for document in documents:
-            changes = updater(document)
-            if changes:
-                changed.append(document)
-        return changed
 
     def search(self, query, limit=100, only_documents=True, **kwargs):
         """Performs a query on the Elasticsearch connection

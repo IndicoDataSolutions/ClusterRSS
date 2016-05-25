@@ -1,62 +1,83 @@
-import json, os
+import json, os, logging
+import requests
+
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
+import indicoio
+from indicoio.custom import Collection
+from picklable_itertools.extras import partition_all
 
 from client import ESConnection
-from .words import cross_reference
-from dateutil.parser import parse as date_parse
 
-FINANCIAL_WORDS = set(json.loads(open(os.path.join(
-    os.path.dirname(__file__), "data", "financial_keywords.json"
-)).read()))
+indicoio.config.cloud = 'themeextraction'
+indicoio.config.api_key=os.getenv("CUSTOM_INDICO_API_KEY")
 
-LINKS = set()
-IDS_DELETE = list()
+EXECUTOR_SPLITTEXT = ThreadPoolExecutor(max_workers=8)
+EXECUTOR_CUSTOM = ThreadPoolExecutor(max_workers=8)
+HEADERS = {
+    "X-ApiKey": indicoio.config.api_key
+}
 
-def add_financial_keywords(doc):
-    source = doc["_source"]
-    if not source.get("financial"):
-        text = source["text"]
-        source["financial"] = cross_reference(text, FINANCIAL_WORDS)
-        return True
-    return False
+growth_collection = Collection("Growth-v3", domain="finance")
 
-def dedup(doc):
-    if doc["_source"].get("link") in LINKS:
-        IDS_DELETE.append(doc.get("_id"))
-    LINKS.add(doc["_source"].get("link"))
-    return False
+# Logging
+logging.getLogger('requests').setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 
-def convert_link_to_id(doc):
-    if doc["_id"] != doc["_source"]["link"]:
-        IDS_DELETE.append(doc["_id"])
-        doc["_id"] = doc["_source"]["link"]
-        return True
-    return False
+# Logging
+root = logging.getLogger("elasticsearch.update")
+root.setLevel(logging.INFO)
+fileHandler = logging.FileHandler("output.log")
+fileHandler.setLevel(logging.DEBUG)
+root.addHandler(fileHandler)
 
-def convert_date(doc):
-    date = doc["_source"]["date"]
-    if type(date) == int or date.isdigit():
-        return False
-    doc["_source"]["date"] = date_parse(date).strftime("%s")
-    return True
+LOG_LIMIT = 160
 
-def update(doc):
-    changed = False
-    # changed = add_financial_keywords(doc)
-    # changed = dedup(doc) or changed
-    # changed = convert_link_to_id(doc) or changed
-    changed = convert_date(doc) or changed
-    return changed
+def splittext(documents):
+    result = json.loads(requests.post(
+        "https://themeextraction.indico.domains/splittext/batch",
+        headers=HEADERS,
+        data=json.dumps({
+            "data": [doc["_source"]["text"] for doc in documents]
+        }), verify=False).text)
+    return documents, result.get("results")
+
+def growth(document):
+    results = growth_collection.predict(document["_source"]["sentences"], domain="finance")
+    document["_source"]["growth"] = results
+    return document
+
+def add_splittext(docs):
+    split_futures = {}
+    root.info("Begin splittext on {0} documents".format(len(docs)))
+    for documents in partition_all(20, docs):
+        split_futures[EXECUTOR_SPLITTEXT.submit(splittext, documents)] = 0
+
+    result_documents = []
+
+    for future in concurrent.futures.as_completed(split_futures):
+        documents, sentences = future.result()
+        root.info("Sample of first splittext document in batch with {0}".format(sentences[0])[:LOG_LIMIT] + "...")
+        for idx in xrange(len(documents)):
+            documents[idx]["_source"]["sentences"] = [sent["text"] for sent in sentences[idx]]
+        result_documents += documents
+    return result_documents
+
+def add_custom_growth(docs):
+    custom_futures = {}
+    root.info("Begin Growth on {0} documents".format(len(docs)))
+    for document in docs:
+        custom_futures[EXECUTOR_CUSTOM.submit(growth, document)] = 0
+
+    result_documents = []
+    for future in concurrent.futures.as_completed(custom_futures):
+        document = future.result()
+        root.info("Sample of document completed {0}".format(document["_source"]["growth"][:5])[:LOG_LIMIT] + "...")
+        result_documents.append(document)
+        del custom_futures[future]
+    return result_documents
 
 if __name__ == "__main__":
     es = ESConnection("localhost:9200")
-    try:
-        es.update("*", "1m", update, window=5000)
-    except:
-        import traceback; traceback.print_exc()
-    finally:
-        import json
-        with open("set_of_links.json", 'wb') as f:
-            f.write(json.dumps(list(LINKS)))
-        with open("ids_to_delete.json", 'wb') as f:
-            f.write(json.dumps(IDS_DELETE))
-    es.delete_by_ids(IDS_DELETE)
+    # es.update("*", "20m", add_splittext, window=5000)
+    es.update("*", "20m", add_custom_growth, window=5000)
