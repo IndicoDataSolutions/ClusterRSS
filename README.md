@@ -33,7 +33,7 @@ Currently, the data available for clustering is of Finance articles. The source 
 
 5. Run elasticsearch by running the `./scripts/run_elasticsearch_host.sh` script in a tmux screen.
 
-6. Either [restore elasticsearch data](wiki-link-for-elasticsearch-here) from a backup, or run data ingress to populate the elasticsearch store.
+6. Either [restore elasticsearch data](https://github.com/IndicoDataSolutions/ClusterRSS/wiki/%5BElasticsearch%5D-Backups-&-Restores) from a backup, or run data ingress to populate the elasticsearch store.
 
 ### Running Data Ingress
 ```bash
