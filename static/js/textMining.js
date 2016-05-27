@@ -27,6 +27,7 @@ $('#query').submit(function(e) {
 
   $.post('/text-mining/query', JSON.stringify({'group': group, 'query': query}), function (data) {
     data = JSON.parse(data);
+
     if (data.error === 'bad query') {
       alert('It appears we couldn\'t generate useful clusters with your query, please try another.');
       $('.spinner-holder').hide();
@@ -315,15 +316,163 @@ function drawAll(error, dataset) {
     });
   }
 
-  function slideInfoOut(node) {
-    updateText(node, ['keywords', 'people', 'places', 'organizations'], '#info');
-    updateBar('#info .sentiment-bar', node.indico.sentiment)
-    $('#info .text p').html(node.summary);
-    $('#info .length').text(node.text.split(' ').length);
-    $('#info .date').text(node.date);
+  function getClusterKeywords(data) {
+    var info = {}
+    $.each(data.children, function(i, node) {
+      for (var item in node.indico['keywords']) {
+        // save every occurence
+        if (!info[item]) {
+          info[item] = [node.indico['keywords'][item]]
+        } else {
+          info[item].push(node.indico['keywords'][item])
+        }
+      }
+    });
+    return info;
+  }
 
-    $('#info .title').find('a').attr('href', node.link);
-    $('#info .title').find('a').text(node.title);
+  function getClusterEntities(data, entityType) {
+    var info = {}
+
+    $.each(data.children, function(i, node) {
+      var entities = node.indico[entityType];
+      for (var j=0; j<entities.length; j++) {
+        // save every occurence
+        if (!info[entities[j].text]) {
+          info[entities[j].text] = [{ position: entities[j].position, article: i, cluster: data.cluster, type: entityType }]
+        } else {
+          info[entities[j].text].push({ position: entities[j].position, article: i, cluster: data.cluster, type: entityType });
+        }
+      }
+    });
+    return info;
+  }
+
+  function combine(data) {
+    var total = {}
+    $.each(data, function (i, clusterItems) {
+      for (var item in clusterItems) {
+        if (!total[item]) {
+          total[item] = clusterItems[item];
+        } else {
+          total[item].concat(clusterItems[item]);
+        }
+      }
+    });
+    return total;
+  }
+
+  function topItems(data, num) {
+    var topKeys = Object.keys(data).sort(function(a, b) {return -(data[a].length - data[b].length) }).slice(0, num);
+    var top = {}
+    $.each(topKeys, function(i, key) { top[key] = data[key]; });
+    return top;
+  }
+
+  function writeList(data, selector) {
+    $(selector).html('');
+    for (var key in data) {
+      $(selector).append('<li class="word">\
+        <span class="name">'+key+'</span><span class="mentions">'+data[key].length.toString()+'</span>\
+      </li>');
+    }
+  }
+
+  function populateNodeInfo(data) {
+    updateText(data, ['keywords', 'people', 'places', 'organizations'], '#info');
+    updateBar('#node .sentiment-bar', data.indico.sentiment);
+    console.log(data);
+    $('#node .text p').html(data.summary);
+    $('#node .length').text(data.text.split(' ').length);
+    $('#node .title').find('a').attr('href', data.link);
+    $('#node .title').find('a').text(data.title);
+
+    if (data.date) {
+      $('#node .date').show();
+      $('#node .date').text(new Date(data.date*1000).toDateString());
+    } else {
+      $('#node .date').hide();
+    }
+  }
+
+  function populateClusterInfo(data) {
+    $('#cluster .articles').text(data.children.length.toString());
+
+    var entityChunks = [
+      getClusterEntities(data, 'people'),
+      getClusterEntities(data, 'places'),
+      getClusterEntities(data, 'organizations')
+    ];
+
+    var topEntities = topItems(combine(entityChunks), 5);
+    var topKeywords = topItems(getClusterKeywords(data), 5);
+    writeList(topKeywords, '#cluster .keywords');
+    writeList(topEntities, '#cluster .entities');
+
+    var growthSentences = []
+    data.children.map(function(article) {
+      for (var i=0; i<article.growth.length; i++) {
+        growthSentences.push({ sentence: article.sentences[i], growth: article.growth[i] })
+      }
+    });
+
+    var topGrowth = growthSentences.filter(function(growthSentence) {
+      return growthSentence.sentence.length > 30;
+    }).sort(function(a, b) {
+      return Math.max(b.growth.positive, b.growth.negative) - Math.max(a.growth.positive, a.growth.negative);
+    }).slice(0, 10);
+
+    $('#cluster .growth').html('');
+    topGrowth.map(function(growthSentence) {
+      $('#cluster .growth').append('<li>'+growthSentence.sentence+'</li>');
+    });
+  }
+
+  function populateOverview(data) {
+
+    var totalClusters = data.children.length;
+    var totalArticles = 0;
+    $.each(data.children, function(i, cluster) {
+      totalArticles += cluster.children.length;
+    });
+    $('#top .article-meta .query-word').html('<b>"'+$('input[name="query"]').val()+'"</b>');
+    $('#top .clusters').html(totalClusters.toString());
+    $('#top .articles').html(totalArticles.toString());
+
+    var keywordChunks = [];
+    var peopleChunks = [];
+    var placesChunks = [];
+    var organizationsChunks = [];
+    $.each(data.children, function(i, cluster) {
+      keywordChunks.push(getClusterKeywords(cluster));
+      peopleChunks.push(getClusterEntities(cluster, 'people'));
+      placesChunks.push(getClusterEntities(cluster, 'places'));
+      organizationsChunks.push(getClusterEntities(cluster, 'organizations'));
+    });
+    var entityChunks = [].concat(peopleChunks, placesChunks, organizationsChunks);
+
+    var topEntities = topItems(combine(entityChunks), 10);
+    var topKeywords = topItems(combine(keywordChunks), 10);
+    writeList(topKeywords, '#top .keywords');
+    writeList(topEntities, '#top .entities');
+  }
+
+
+  function slideInfoOut(data, dataType) {
+    $('#info > div').hide();
+
+    if (dataType === 'node') {
+      $('#info #node').show();
+      populateNodeInfo(data);
+    } else if (dataType === 'cluster') {
+      $('#info #cluster').show();
+      populateClusterInfo(data);
+    } else if (dataType === 'top') {
+      $('#info #top').show();
+      populateOverview(data);
+    } else {
+      throw new Error('Invalid data type');
+    }
 
     $('#banner').css({'right': '400px'});
     $('#info').css({'right': '0px'});
@@ -368,15 +517,13 @@ function drawAll(error, dataset) {
       var cluster = findCluster(currentNode);
       if (cluster && !currentNode.top) {
         zoomToCanvas(cluster);
-        if (!currentNode.holder) slideInfoOut(currentNode);
+        if (!currentNode.holder) slideInfoOut(currentNode, 'node');
       } else {
         zoomToCanvas(root);
-        slideInfoIn();
       }
       currentNode.selected = (!currentNode.holder)? true : false;
     } else {
       zoomToCanvas(root);
-      slideInfoIn();
     }
   
   });
@@ -408,6 +555,7 @@ function drawAll(error, dataset) {
 
       if (node.indico[selector].length > 0) {
         var info = showTop(node, selector);
+        if (!info) continue;
 
         $(parent+' .'+selector).html('<p>\
           <b>'+selector[0].toUpperCase()+selector.slice(1)+'</b> '+info+'<br><br>\
@@ -551,10 +699,14 @@ function drawAll(error, dataset) {
     focus = focusNode;
 
     if (focusNode == root) {
-      slideInfoIn();
+      slideInfoOut(dataset, 'top');
       setBanner({});
       $('#zoomOut').animate({ 'opacity': 0});
+    } else if (focusNode.holder) {
+      slideInfoOut(focusNode, 'cluster');
+      $('#zoomOut').animate({ 'opacity': 1});
     } else {
+      slideInfoOut(focusNode, 'node');
       $('#zoomOut').animate({ 'opacity': 1});
     }
     

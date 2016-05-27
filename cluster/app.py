@@ -53,7 +53,7 @@ class QueryHandler(tornado.web.RequestHandler):
             query = data.get('query')
             self.set_secure_cookie('current_search', query)
 
-            entries = ES.search(query, limit=500)
+            entries = ES.search(query, limit=1000)
             entries = list_of_seq_unique_by_key(entries, "title")
 
             if len(entries) < 5:
@@ -64,9 +64,11 @@ class QueryHandler(tornado.web.RequestHandler):
             result_dict = generate_clusters_dict(entries, all_clusters, all_similarities, feature_vectors)
 
             self.write(json.dumps(result_dict))
+
         except ClusterError as e:
             import traceback; traceback.print_exc()
             self.write(json.dumps({"error": str(e)}))
+            
         except Exception as e:
             import traceback; traceback.print_exc()
             self.write(json.dumps({

@@ -124,6 +124,7 @@ a {
 
 #info {
   position: fixed;
+  overflow: scroll;
   z-index:8999;
   width:400px;
   right:-400px;
@@ -138,15 +139,6 @@ a {
   transition:500ms all ease-in;
   -webkit-transition:500ms all ease-in;
 }
-  #info p {
-    text-align: left;
-  }
-  #info .text {
-    height: 200px;
-    overflow-x: hidden;
-    margin-bottom: 20px;
-  }
-  #info b, #info p { display: inline; }
   #info b {
     font-size: 18px;
     font-family: "proxima-nova-400";
@@ -155,26 +147,105 @@ a {
     font-family: "proxima-nova-100";
     letter-spacing: 0.025em; 
   }
-  #info .meta {
+
+  /********** FOR TOP AND CLUSTER INFO *********/
+  #top .article-meta p, #cluster .article-meta p {
+    font-size: 20px;
+    margin: 0px;
+  }
+    #top .article-meta b, #cluster .article-meta b {
+      font-family: "proxima-nova-100";
+      font-size: 24px;
+      letter-spacing: 0.05em;
+    }
+
+  #top h2, #cluster h2 {
+    font-family: "proxima-nova-100";
+    color: #eee;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 5px;
+    margin: 25px 0px 0px 0px;
+  }
+
+  #top ul, #cluster ul { 
+    padding-left: 0px;
+    margin-top: 15px;
+    margin: 10px -5px 0px -5px;
+  }
+  #cluster ul.growth { 
+    margin: 0px;
+    background: #333;
+    padding: 12px 0px;
+    /*border-bottom: 10px solid #333;*/
+  }
+    #cluster ul.growth li {
+      display: block;
+      background: #555;
+      box-sizing: border-box;
+      margin: 12px;
+      margin-top: 0px;
+      border-radius: 2px;
+      padding: 10px 15px;
+      box-shadow: 0px 0px 4px 1px rgba(85, 85, 85, 0.47);
+    }
+    #cluster ul.growth li:last-child { margin-bottom: 0px; }
+
+  #top .word, #cluster .word {
+    display: inline-block;
+    background: #333;
+    margin: 10px 5px;
+    border-radius: 3px;
+  }
+    #top .word .name, #cluster .word .name {
+      background: white;
+      padding: 6px 12px;
+      color: #555;
+      border-top-left-radius: 3px;
+      border-bottom-left-radius: 3px;
+    }
+    #top .word .mentions, #cluster .word .mentions {
+      padding: 6px 12px;
+      background: #333;
+      border-top-right-radius: 3px;
+      border-bottom-right-radius: 3px;
+    }
+
+
+  /********** FOR TOP INFO *********/
+
+  /********** FOR CLUSTER INFO *********/
+  
+  /********** FOR NODE INFO *********/
+  #node p {
+    text-align: left;
+  }
+  #node .text {
+    height: 200px;
+    overflow-x: hidden;
+    margin-bottom: 20px;
+  }
+  #node b, #node p { display: inline; }
+  
+  #node .meta {
     margin-bottom: 14px;
   }
-    #info .meta .holder {
+    #node .meta .holder {
       display: inline-block;
       vertical-align: top;
       color: #ddd;
       font-size: 18px;
     }
-    #info #date-holder { width: 70%; }
-    #info #length-holder { width: 28%; }
+    #node #date-holder { width: 70%; }
+    #node #length-holder { width: 28%; }
 
-  #info .sentiment-bar {
+  #node .sentiment-bar {
     background: #eee;
     width: 100%;
     height: 24px;
     border-radius: 12px;
     margin-bottom: 20px;
   }
-    #info .sentiment-bar .data {
+    #node .sentiment-bar .data {
       background: #4c73dd;
       border-radius: 12px;
       width: 0px;
@@ -183,18 +254,18 @@ a {
       top: 0px;
       left: 0px;
     }
-    #info .sentiment-bar .data .label {
+    #node .sentiment-bar .data .label {
       position: absolute;
       display: block;
       top: 2px;
       font-size: 16px;
     }
 
-  #info .text::-webkit-scrollbar {
+  #node .text::-webkit-scrollbar {
     -webkit-appearance: none;
     width: 7px;
   }
-  #info .text::-webkit-scrollbar-thumb {
+  #node .text::-webkit-scrollbar-thumb {
     border-radius: 4px;
     background-color: rgba(0,0,0,.5);
     -webkit-box-shadow: 0 0 1px rgba(255,255,255,.5);

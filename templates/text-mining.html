@@ -44,27 +44,76 @@
       </div>
 
       <div id="info">
-        <div class="title"><b><a target="_blank" href=""></a></b></div><br>
-        <div class="meta">
-          <div id="date-holder" class="holder">
-            <span class="date">10/14/1066</span>
+
+        <div id="node">
+          <div class="title"><b><a target="_blank" href=""></a></b></div><br>
+          <div class="meta">
+            <div id="date-holder" class="holder">
+              <span class="date">10/14/1066</span>
+            </div>
+            <div id="length-holder" class="holder">
+              <span class="length">1000</span> Words
+            </div>
           </div>
-          <div id="length-holder" class="holder">
-            <span class="length">1000</span> Words
+          <div class="sentiment-bar">
+            <div class="data">
+              <span class="label"></span>
+            </div>
+          </div>
+          <div class="keywords"></div>
+          <div class="people"></div>
+          <div class="places"></div>
+          <div class="organizations"></div>
+          <b>Generated Summary</b>
+          <div class="text">
+            <p></p>
           </div>
         </div>
-        <div class="sentiment-bar">
-          <div class="data">
-            <span class="label"></span>
+
+        <div id="cluster">
+          <!-- Extended list of keywords
+          NER with counts
+          Finance Keywords -->
+          <!-- <div class="keywords">
           </div>
+          <div class="entities">
+          </div>
+          <div class="finance">
+          </div> -->
+          <div class="article-meta">
+            <p>
+              <b><span class="number articles"></span> articles</b>
+            </p>
+          </div>
+          <h2>Important Entities</h2>
+          <ul class="entities">
+          </ul>
+          <h2>Keyword Mentions</h2>
+          <ul class="keywords">
+          </ul>
+          <h2>Growth/Decline</h2>
+          <ul class="growth">
+          </ul>
         </div>
-        <div class="keywords"></div>
-        <div class="people"></div>
-        <div class="places"></div>
-        <div class="organizations"></div>
-        <b>Generated Summary</b>
-        <div class="text">
-          <p></p>
+
+        <div id="top">
+          <!-- how many articles were returned
+          NER with counts
+          keywords with counts -->
+          <div class="article-meta">
+            <p><b class="query-word"></b> retrieved</p>
+            <hr>
+            <p>
+              <b><span class="number clusters"></span> clusters</b> containing<br>
+              <b><span class="number articles"></span> articles</b>
+            </p>
+          </div>
+          <h2>Important Entities</h2>
+          <ul class="entities">
+          </ul>
+          <h2>Keyword Mentions</h2>
+          <ul class="keywords">
+          </ul>
         </div>
       </div>
 
