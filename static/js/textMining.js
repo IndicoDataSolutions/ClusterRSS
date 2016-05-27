@@ -435,7 +435,7 @@ function drawAll(error, dataset) {
     $.each(data.children, function(i, cluster) {
       totalArticles += cluster.children.length;
     });
-    $('#top .article-meta .query-word').html('<b>"'+$('input[name="query"]').val()+'"</b>');
+    $('#top .article-meta .query-word').html('<b>'+$('input[name="query"]').val()+'</b>');
     $('#top .clusters').html(totalClusters.toString());
     $('#top .articles').html(totalArticles.toString());
 
@@ -619,7 +619,7 @@ function drawAll(error, dataset) {
     var clusterIndico = findCluster(node);
     var info = clusterIndico.info.keywords.join(', ');
 
-    $('#banner > span').text(info);
+    // $('#banner > span').text(info);
   }
 
   document.getElementById('tooltip').addEventListener('mouseover', function(e) {
@@ -681,8 +681,10 @@ function drawAll(error, dataset) {
   ///////////////////// Zoom Function //////////////////////////
   ////////////////////////////////////////////////////////////// 
 
-  $('#zoomOut').click(function() {
+  $('#zoomOut').click(function(e) {
+    e.preventDefault();
     zoomToCanvas(root);
+    return false;
   });
   
   //Based on the generous help by Stephan Smola

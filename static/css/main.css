@@ -9,6 +9,10 @@ a {
   color: #fff;
 }
 
+.text-center {
+  text-align: center;
+}
+
 #tooltip {
   position: absolute;
   z-index: 9001;
@@ -39,6 +43,9 @@ a {
   transition:500ms right ease-in;
   -webkit-transition:500ms right ease-in;
 }
+  #banner span {
+    font-family: "proxima-nova-400";
+  }
 
 #query {
   padding: 12px;
@@ -113,7 +120,12 @@ a {
     float: right;
     margin-right: 30px;
   }
-  #zoomOut { opacity: 0; }
+  #zoomOut { 
+    color: white;
+    border: none;
+    outline: none;
+    opacity: 0;
+  }
 
 #chart {
   position: relative;
