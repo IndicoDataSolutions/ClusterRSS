@@ -29,7 +29,7 @@ Currently, the data available for clustering is of Finance articles. The source 
     }
     ```
 3. Don't forget to source `~/.bashrc`
-4. Save the contents of `./scripts/setup.sh` to a file with `sudo chown -x setup.sh` permissions. Run the script.
+4. Save the contents of `./scripts/setup.sh` to a file with `sudo chmod -x setup.sh` permissions. Run the script.
 
 5. Run elasticsearch by running the `./scripts/run_elasticsearch_host.sh` script in a tmux screen.
 
