@@ -68,7 +68,7 @@ class QueryHandler(tornado.web.RequestHandler):
         except ClusterError as e:
             import traceback; traceback.print_exc()
             self.write(json.dumps({"error": str(e)}))
-            
+
         except Exception as e:
             import traceback; traceback.print_exc()
             self.write(json.dumps({

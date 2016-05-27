@@ -180,6 +180,7 @@ a {
   }
     #cluster ul.growth li {
       display: block;
+      position: relative;
       background: #555;
       box-sizing: border-box;
       margin: 12px;
@@ -189,6 +190,20 @@ a {
       box-shadow: 0px 0px 4px 1px rgba(85, 85, 85, 0.47);
     }
     #cluster ul.growth li:last-child { margin-bottom: 0px; }
+    #cluster ul.growth li:after {
+      content: "";
+      text-align: right;
+      display: block;
+      height: 100%;
+      position: absolute;
+      background: #4c73dd;
+      top: 0px;
+      left: 0px;
+      padding: 10px 10px;
+      box-sizing: border-box;
+      z-index: 999998;
+      opacity: 0;
+    }
 
   #top .word, #cluster .word {
     display: inline-block;
