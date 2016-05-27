@@ -21,7 +21,7 @@ class Document(dict):
     def __getattr__(self, key):
         try:
             return self.__getitem__(key)
-        except AttributeError, KeyError:
+        except (AttributeError, KeyError):
             return super(Document, self).__getattr__(key)
 
     def __setattr__(self, key, value):

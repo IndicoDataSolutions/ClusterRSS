@@ -1,4 +1,3 @@
-import json
 import os.path
 
 from sqlalchemy.ext.declarative import declarative_base
