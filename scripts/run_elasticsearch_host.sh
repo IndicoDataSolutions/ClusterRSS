@@ -10,4 +10,4 @@ if [ ! -f $DIR/$VERSION/bin/elasticsearch ]; then
     bin/plugin install elasticsearch/elasticsearch-cloud-aws/2.7.1
 fi
 
-ES_HEAP_SIZE=16g $DIR/$VERSION/bin/elasticsearch
+ES_HEAP_SIZE=4g $DIR/$VERSION/bin/elasticsearch

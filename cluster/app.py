@@ -8,6 +8,7 @@
 
 import os, json
 from os.path import abspath
+import argparse
 
 import tornado.ioloop
 import tornado.web
@@ -53,7 +54,7 @@ class QueryHandler(tornado.web.RequestHandler):
             self.set_secure_cookie('current_search', query)
 
             entries = ES.search(query, limit=500)
-            entries = list_of_seq_unique_by_key(entries, "titles")
+            entries = list_of_seq_unique_by_key(entries, "title")
 
             if len(entries) < 5:
                 raise ClusterError("insufficient results for given query")
@@ -64,11 +65,14 @@ class QueryHandler(tornado.web.RequestHandler):
 
             self.write(json.dumps(result_dict))
         except ClusterError as e:
+            import traceback; traceback.print_exc()
             self.write(json.dumps({"error": str(e)}))
         except Exception as e:
+            import traceback; traceback.print_exc()
             self.write(json.dumps({
                 'error': "Uncaught error - " + str(e)
             }))
+
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render('text-mining.html', DEBUG=DEBUG)
@@ -112,5 +116,9 @@ application = tornado.web.Application(
 )
 
 if __name__ == "__main__":
-    application.listen(8002)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=8002)
+    args = parser.parse_args()
+
+    application.listen(args.port)
     tornado.ioloop.IOLoop.current().start()

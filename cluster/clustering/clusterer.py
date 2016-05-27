@@ -6,7 +6,7 @@ from ..errors import ClusterError
 
 class DBScanClusterer(object):
     def __init__(self, feature_vectors, algorithm="brute", metric="cosine", **kwargs):
-        self.feature_vectors = self.feature_vectors
+        self.feature_vectors = feature_vectors
         self.kwargs = kwargs
         if not feature_vectors.shape[0]:
             raise ClusterError('empty results')
@@ -34,7 +34,7 @@ class DBScanClusterer(object):
             if not clusterer.components_.shape[0]:
                 similarities = [1] * self.feature_vectors.shape[0]
             else:
-                similarities = np.max(self.feature_vectors.dot(clusterer.components_.T).todense(), axis = 1)
+                similarities = np.max(self.feature_vectors.dot(clusterer.components_.T), axis = 1)
 
             # If it's good enough, let's go!
             if best_num_clusters > 4:

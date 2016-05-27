@@ -4,6 +4,10 @@ from collections import defaultdict, Counter
 from scipy.spatial.distance import cdist
 import numpy as np
 
+from .clusterer import DBScanClusterer
+
+INDICO_VALUES = ["keywords", "title_keywords", "people", "places", "oragnizations"]
+
 def generate_clusters_dict(entries, all_clusters, all_similarities, feature_vectors):
     # Build Result Dict
     count = defaultdict(int)
@@ -17,10 +21,8 @@ def generate_clusters_dict(entries, all_clusters, all_similarities, feature_vect
             continue
         entry, cluster = entries[i], all_clusters[i]
         entry['cluster'], entry["distance"] = cluster, all_similarities[i]
-        cluster_features[cluster] = feature_vectors[i]
+        cluster_features[cluster] = cluster_features.get(cluster, []) + [feature_vectors[i]]
         result_dict[cluster]["articles"] = result_dict[cluster].get("articles", []) + [entry]
-        for val, word in entry["indico"].iteritems():
-            result_dict[cluster][val][word["text"] if type(word) == dict else word] += 1
 
     # Postprocessing
     result_dict = _fill_cluster_indico_data(result_dict)
@@ -30,10 +32,14 @@ def generate_clusters_dict(entries, all_clusters, all_similarities, feature_vect
     return result_dict
 
 def _fill_cluster_centers(result_dict, cluster_features):
+    cluster_centers = {}
     for cluster, features_list in cluster_features.items():
         array_features = np.array([np.asarray(el).flatten() for el in features_list])
         distance_sums = [sum(dists) for dists in cdist(array_features, array_features, 'euclidean')]
-        result_dict[cluster] = min(enumerate(distance_sums), key=itemgetter(1))[0]
+        index = min(enumerate(distance_sums), key=itemgetter(1))[0]
+
+        result_dict[cluster]["cluster_title"] = result_dict[cluster]["articles"][index]
+
     return result_dict
 
 def _fill_cluster_indico_data(result_dict):
