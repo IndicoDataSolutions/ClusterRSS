@@ -1,5 +1,6 @@
 import json, os, logging
 import requests
+import datetime
 
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
@@ -77,7 +78,13 @@ def add_custom_growth(docs):
         del custom_futures[future]
     return result_documents
 
+def change_date(docs):
+    for doc in docs:
+        doc["_source"]["date"] = datetime.datetime.fromtimestamp(int(doc["_source"].get("date", "0")))
+    return docs
+    
 if __name__ == "__main__":
     es = ESConnection("localhost:9200")
     # es.update("*", "20m", add_splittext, window=5000)
-    es.update("*", "20m", add_custom_growth, window=5000)
+    # es.update("*", "20m", add_custom_growth, window=5000)
+    es.update("*", "2m", change_date, window=5000)

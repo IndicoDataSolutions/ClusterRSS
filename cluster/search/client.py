@@ -71,7 +71,7 @@ class ESConnection(object):
             if not documents:
                 break
 
-    def search(self, query, limit=100, only_documents=True, **kwargs):
+    def search(self, query, start_date=None, end_date=None, limit=100, only_documents=True, **kwargs):
         """Performs a query on the Elasticsearch connection
         https://www.elastic.co/guide/en/elasticsearch/reference/current/full-text-queries.html
 
