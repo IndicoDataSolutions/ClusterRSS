@@ -1,4 +1,5 @@
 import logging, sys
+import datetime
 
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
@@ -14,6 +15,7 @@ ch = logging.StreamHandler(sys.stdout)
 ch.setLevel(logging.DEBUG)
 es_logger.addHandler(ch)
 
+EPOCH = datetime.datetime.fromtimestamp(0)
 class ESConnection(object):
     """Creates an Elasticsearch connection to the dedicated master hosts
 
@@ -71,7 +73,7 @@ class ESConnection(object):
             if not documents:
                 break
 
-    def search(self, query, start_date=None, end_date=None, limit=100, only_documents=True, **kwargs):
+    def search(self, query, start_date=EPOCH, end_date=None, limit=100, only_documents=True, **kwargs):
         """Performs a query on the Elasticsearch connection
         https://www.elastic.co/guide/en/elasticsearch/reference/current/full-text-queries.html
 
@@ -104,7 +106,25 @@ class ESConnection(object):
             u'timed_out': False
         }
         """
-        results = self.es.search(index=self.index, q=query, size=limit, **kwargs)
+        results = self.es.search(index=self.index, q={
+            "bool": {
+                "should": [
+                    {
+                        "simple_query_string": {
+                            "query": query
+                        }
+                    }
+                ],
+                "filter": {
+                    "range": {
+                        "date": {
+                            "gte": start_date
+                            "lt": end_date or datetime.datetime.now()
+                        }
+                    }
+                }
+            }
+        }, size=limit, **kwargs)
         if only_documents:
             return self._format_search(results)
         return results
