@@ -94,9 +94,9 @@ class BookmarkHandler(tornado.web.RequestHandler):
         """add image link to bookmarks"""
         data = json.loads(self.request.body)
         search = self.get_secure_cookie('current_search')
-        link, title, key, origin  = data['link'], data['title'], data['key'], data['origin']
+        link, text, title, key, origin  = data['link'], data['text'], data['title'], data['key'], data['origin']
         try:
-            bookmark = Bookmark(link=link, title=title, key=key, origin=origin, search=search)
+            bookmark = Bookmark(text=text, link=link, title=title, key=key, origin=origin, search=search)
             session = DBSession()
             session.add(bookmark)
             session.commit()
@@ -106,10 +106,20 @@ class BookmarkHandler(tornado.web.RequestHandler):
             self.write(json.dumps({'success': False, 'message': 'Something went wrong, you may already have that link bookmarked.'}))
 
 
+class Practice(tornado.web.RequestHandler):
+
+    def get(self):
+        self.render('practice.html')
+
 # NOTE: nginx will be routing /text-mining requests to this app. For example, posts in javascript
 #       need to specify /text-mining/query, not /query
 application = tornado.web.Application(
-    [(r"/text-mining", MainHandler), (r"/text-mining/bookmarks", BookmarkHandler), (r"/text-mining/query", QueryHandler)],
+    [
+        (r"/text-mining", MainHandler),
+        (r"/text-mining/bookmarks", BookmarkHandler),
+        (r"/text-mining/query", QueryHandler),
+        (r"/text-mining/practice", Practice)
+    ],
     template_path=abspath(os.path.join(__file__, "../../templates")),
     static_url_prefix="/text-mining/static/",
     static_path=abspath(os.path.join(__file__, "../../static")),
