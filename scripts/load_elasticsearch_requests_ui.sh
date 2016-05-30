@@ -8,11 +8,28 @@ set_backup() {
   }'
 }
 
+s3_backup() {
+  curl -XPUT 'http://localhost:9200/_snapshot/my_backup' -d '{
+      "type": "s3",
+      "settings": {
+          "bucket": "corpii/finance/backups",
+          "region": "us-west-2"
+      }
+  }'
+}
+
 snapshot() {
   url='http://localhost:9200/_snapshot/my_backup/'
   url+=$1
   url+="?wait_for_completion=true"
   curl -XPUT $url
+}
+
+delete_snapshot() {
+  url='http://localhost:9200/_snapshot/my_backup/'
+  url+=$1
+  url+="?wait_for_completion=true"
+  curl -XDELETE $url
 }
 
 status() {

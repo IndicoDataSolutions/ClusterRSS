@@ -76,7 +76,7 @@ class ESConnection(object):
     def count(self, query):
         return self.es.count(index=self.index, q=query)["count"]
 
-    def search(self, query, start_date=EPOCH, end_date=None, limit=100, only_documents=True, **kwargs):
+    def search(self, query, start_date=None, end_date=None, limit=100, only_documents=True, **kwargs):
         """Performs a query on the Elasticsearch connection
         https://www.elastic.co/guide/en/elasticsearch/reference/current/full-text-queries.html
 
@@ -121,7 +121,7 @@ class ESConnection(object):
                 "filter": {
                     "range": {
                         "date": {
-                            "gte": start_date
+                            "gte": start_date or EPOCH,
                             "lt": end_date or datetime.datetime.now()
                         }
                     }
@@ -146,7 +146,7 @@ class ESConnection(object):
         return self.es.field_stats(
             index=self.index,
             body=query,
-            field=[field]
+            fields=[field]
         )["indices"][self.index]["fields"][field]
 
     def delete(self):

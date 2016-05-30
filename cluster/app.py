@@ -55,7 +55,7 @@ class QueryHandler(tornado.web.RequestHandler):
             after = data.get('after')
             self.set_secure_cookie('current_search', query)
 
-            entries = ES.search(query, limit=1000)
+            entries = ES.search(query, start_date=before, end_date=after, limit=1000)
             entries = list_of_seq_unique_by_key(entries, "title")
 
             if len(entries) < 5:
