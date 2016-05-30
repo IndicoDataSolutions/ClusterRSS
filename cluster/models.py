@@ -19,15 +19,17 @@ class Bookmark(Base):
     __tablename__ = 'bookmarks'
 
     id = Column('id', Integer, primary_key=True)
-    key = Column('text', String)
+    key = Column('api_key', String)
     link = Column('link', String)
+    text = Column('text', String)
     title = Column('title', String)
     origin = Column('origin', String)
     search = Column('search', String)
 
-    def __init__(self, key, link, title, origin, search):
+    def __init__(self, key, link, text, title, origin, search):
         self.key = key
         self.link = link
+        self.text = text
         self.title = title
         self.origin = origin
         self.search = search

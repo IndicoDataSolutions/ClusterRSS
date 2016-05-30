@@ -15,18 +15,14 @@ class DBScanClusterer(object):
             "metric": "cosine"
         })
 
-    def get_clusters(self, epsilon_step=.1):
-        if epsilon_step <= 0 or epsilon_step > 1:
-            raise ValueError("epsilon_step must be between 0 and 1 exclusive")
-        epsilon = epsilon_step
+    def get_clusters(self, eps_range=[0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, .1]):
         best_num_clusters = 0
-        while epsilon < 1:
+        for epsilon in eps_range:
             clusterer = DBSCAN(eps=epsilon, **self.kwargs)
             fitted_response = clusterer.fit_predict(self.feature_vectors)
 
             # If results are worse, just skip the rest
             if len(fitted_response) < best_num_clusters:
-                epsilon += epsilon_step
                 continue
 
             # Calculate similarites
@@ -39,5 +35,4 @@ class DBScanClusterer(object):
             # If it's good enough, let's go!
             if best_num_clusters > 4:
                 return fitted_response, similarities.tolist()
-            epsilon += epsilon_step
         return fitted_response, similarities.tolist()

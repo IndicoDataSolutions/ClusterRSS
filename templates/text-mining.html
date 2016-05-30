@@ -24,10 +24,14 @@
     <div>
       <form id="query" action="">
         <div class="input-box">
-          <input type="text" name="query" placeholder="Search trends by keyword..."><button type="submit"><i class="ion-android-search"></i></button>
+          <input type="text" name="query" placeholder="Search trends by keyword...">
+          <button type="submit"><i class="ion-android-search"></i></button>
         </div>
-        <a target="_blank" id="bookmarks" href="/text-mining/bookmarks"><div class="query-button">Bookmarks</div></a>
-        <div id="zoomOut" class="query-button">Zoom to top</div>
+
+        <button id="zoomOut" class="query-button">Zoom to top</button>
+        <a target="_blank" id="bookmarks" href="/text-mining/bookmarks">
+          <div class="query-button">Bookmarks</div>
+        </a>
       </form>
       
       <div class="spinner-holder">
@@ -40,32 +44,71 @@
       </div>
 
       <div id="banner">
-        <strong>Cluster Keywords</strong>: <span></span>
+        <span>Click on the container to see <b>Cluster</b> info, click a node to see <b>Article</b> info.</span>
       </div>
 
       <div id="info">
-        <div class="title"><b><a target="_blank" href=""></a></b></div><br>
-        <div class="meta">
-          <div id="date-holder" class="holder">
-            <span class="date">10/14/1066</span>
+
+        <div id="node">
+          <div class="title"><b><a target="_blank" href=""></a></b></div><br>
+          <div class="meta">
+            <div id="date-holder" class="holder">
+              <span class="date">10/14/1066</span>
+            </div>
+            <div id="length-holder" class="holder">
+              <span class="length">1000</span> Words
+            </div>
           </div>
-          <div id="length-holder" class="holder">
-            <span class="length">1000</span> Words
+          <div class="sentiment-bar">
+            <div class="data">
+              <span class="label"></span>
+            </div>
+          </div>
+          <div class="keywords"></div>
+          <div class="people"></div>
+          <div class="places"></div>
+          <div class="organizations"></div>
+          <b>Generated Summary</b>
+          <div class="text">
+            <p></p>
           </div>
         </div>
-        <div class="sentiment-bar">
-          <div class="data">
-            <span class="label"></span>
+
+        <div id="cluster">
+          <div class="article-meta">
+            <p>
+              <b><span class="number articles"></span> articles</b>
+            </p>
           </div>
+          <h2>Important Entities</h2>
+          <ul class="entities">
+          </ul>
+          <h2>Keyword Mentions</h2>
+          <ul class="keywords">
+          </ul>
+          <h2>Growth/Decline</h2>
+          <ul class="growth">
+          </ul>
         </div>
-        <div class="keywords"></div>
-        <div class="people"></div>
-        <div class="places"></div>
-        <div class="organizations"></div>
-        <b>Generated Summary</b>
-        <div class="text">
-          <p></p>
+
+        <div id="top">
+          <div class="article-meta">
+            <p class="text-center"><b class="query-word"></b></p>
+            <hr>
+            <p>
+              <b><span class="number clusters"></span> clusters</b>
+              &nbsp;&nbsp;<i class="ion-arrow-right-b"></i>&nbsp;&nbsp;
+              <b><span class="number articles"></span> articles</b>
+            </p>
+          </div>
+          <h2>Important Entities</h2>
+          <ul class="entities">
+          </ul>
+          <h2>Keyword Mentions</h2>
+          <ul class="keywords">
+          </ul>
         </div>
+
       </div>
 
       <div id="tooltip">

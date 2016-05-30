@@ -60,13 +60,21 @@
 						font-size: 16px;
 					}
 
+					.group .card .quote {
+					    padding: 14px;
+					    border: 1px solid white;
+					    margin-bottom: 0px;
+					    font-family: "proxima-nova-100";
+					    font-size: 24px;
+					}
+
 		</style>
 	</head>
 	<body id="dashboard">
 		<div class="container">
 			<div class="row">
 				<h1>
-					<span class="button"><a target="_blank" href="/text-mining"><i class="ion-close-round"></i></a></span>&nbsp;
+					<span class="button"><a href="/text-mining"><i class="ion-close-round"></i></a></span>&nbsp;
 					Bookmarks
 				</h1>
 			</div>
@@ -82,9 +90,13 @@
 						<div class="col-sm-4">
 							<div class="card">
 								<div class="row">
+									{% if bookmark.link %}
 									<div class="image-holder">
 										<img src="{{ bookmark.link }}"/>
 									</div>
+									{% else %}
+									<p class="quote">{{ bookmark.text }}</p>
+									{% end %}
 								</div>
 								<div class="row">
 									<div class="image-info">

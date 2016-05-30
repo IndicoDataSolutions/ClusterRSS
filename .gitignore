@@ -1,6 +1,7 @@
 text-mining.db
 venv/
 index.json
+backup/
 somedata.txt
 
 # Byte-compiled / optimized / DLL files
