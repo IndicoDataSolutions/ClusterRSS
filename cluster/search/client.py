@@ -73,6 +73,9 @@ class ESConnection(object):
             if not documents:
                 break
 
+    def count(self, query):
+        return self.es.count(index=self.index, q=query)["count"]
+
     def search(self, query, start_date=EPOCH, end_date=None, limit=100, only_documents=True, **kwargs):
         """Performs a query on the Elasticsearch connection
         https://www.elastic.co/guide/en/elasticsearch/reference/current/full-text-queries.html
@@ -138,6 +141,13 @@ class ESConnection(object):
             "_type": _type,
             "_id": _id
         } for _id in ids])
+
+    def stats(self, field, query=None):
+        return self.es.field_stats(
+            index=self.index,
+            body=query,
+            field=[field]
+        )["indices"][self.index]["fields"][field]
 
     def delete(self):
         """Removes all the documents in this index
