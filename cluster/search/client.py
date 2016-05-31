@@ -1,4 +1,5 @@
 import logging, sys
+import datetime
 
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
@@ -14,6 +15,7 @@ ch = logging.StreamHandler(sys.stdout)
 ch.setLevel(logging.DEBUG)
 es_logger.addHandler(ch)
 
+EPOCH = datetime.datetime.fromtimestamp(0)
 class ESConnection(object):
     """Creates an Elasticsearch connection to the dedicated master hosts
 
@@ -71,6 +73,14 @@ class ESConnection(object):
             if not documents:
                 break
 
+    def count(self, query, **options):
+        options.update({
+            "simple_query_string": {
+                "query": query
+            }
+        })
+        return self.es.count(index=self.index, body=options)["count"]
+
     def search(self, query, start_date=None, end_date=None, limit=100, only_documents=True, **kwargs):
         """Performs a query on the Elasticsearch connection
         https://www.elastic.co/guide/en/elasticsearch/reference/current/full-text-queries.html
@@ -104,7 +114,27 @@ class ESConnection(object):
             u'timed_out': False
         }
         """
-        results = self.es.search(index=self.index, q=query, size=limit, **kwargs)
+        results = self.es.search(index=self.index, track_scores=True, body={
+            "query": {
+                "bool": {
+                    "should": [
+                        {
+                            "simple_query_string": {
+                                "query": query
+                            }
+                        }
+                    ],
+                    "filter": {
+                        "range": {
+                            "date": {
+                                "gte": start_date or EPOCH,
+                                "lt": end_date or datetime.datetime.now()
+                            }
+                        }
+                    }
+                }
+            }
+        }, size=limit, **kwargs)
         if only_documents:
             return self._format_search(results)
         return results
@@ -119,6 +149,16 @@ class ESConnection(object):
             "_id": _id
         } for _id in ids])
 
+    def stats(self, field, query=None):
+        body = dict(query)
+        body["fields"] = [field]
+        results = self.es.field_stats(
+            index=self.index,
+            body=body,
+        )["fields"][field]
+        return results.get(self.index, results.get("_all"))["fields"][field]
+
+
     def delete(self):
         """Removes all the documents in this index
         """
@@ -131,4 +171,9 @@ class ESConnection(object):
 
     def _format_search(self, search_result):
         """Pulls out just the found documents"""
-        return map(lambda doc: doc["_source"], search_result["hits"]["hits"])
+        docs = []
+        for doc in search_result["hits"]["hits"]:
+            source = doc["_source"]
+            source["score"] = doc["_score"]
+            docs.append(source)
+        return docs
