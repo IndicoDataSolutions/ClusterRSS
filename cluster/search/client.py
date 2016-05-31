@@ -114,7 +114,7 @@ class ESConnection(object):
             u'timed_out': False
         }
         """
-        results = self.es.search(index=self.index, body={
+        results = self.es.search(index=self.index, track_scores=True, body={
             "query": {
                 "bool": {
                     "should": [
@@ -138,7 +138,7 @@ class ESConnection(object):
         if only_documents:
             return self._format_search(results)
         return results
-    
+
     def delete_by_ids(self, ids, _type="document"):
         """Deletes a document by id
         """
@@ -171,4 +171,9 @@ class ESConnection(object):
 
     def _format_search(self, search_result):
         """Pulls out just the found documents"""
-        return map(lambda doc: doc["_source"], search_result["hits"]["hits"])
+        docs = []
+        for doc in search_result["hits"]["hits"]:
+            source = doc["_source"]
+            source["score"] = doc["_score"]
+            docs.append(source)
+        return docs
