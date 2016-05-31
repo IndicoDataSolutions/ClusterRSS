@@ -32,7 +32,6 @@ def generate_clusters_dict(entries, all_clusters, all_similarities, feature_vect
     return result_dict
 
 def _fill_cluster_centers(result_dict, cluster_features):
-    cluster_centers = {}
     for cluster, features_list in cluster_features.items():
         array_features = np.array([np.asarray(el).flatten() for el in features_list])
         distance_sums = [sum(dists) for dists in cdist(array_features, array_features, 'euclidean')]
