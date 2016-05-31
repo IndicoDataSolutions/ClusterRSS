@@ -73,8 +73,13 @@ class ESConnection(object):
             if not documents:
                 break
 
-    def count(self, query):
-        return self.es.count(index=self.index, q=query)["count"]
+    def count(self, query, **options):
+        options.update({
+            "simple_query_string": {
+                "query": query
+            }
+        })
+        return self.es.count(index=self.index, body=options)["count"]
 
     def search(self, query, start_date=None, end_date=None, limit=100, only_documents=True, **kwargs):
         """Performs a query on the Elasticsearch connection
@@ -109,20 +114,22 @@ class ESConnection(object):
             u'timed_out': False
         }
         """
-        results = self.es.search(index=self.index, q={
-            "bool": {
-                "should": [
-                    {
-                        "simple_query_string": {
-                            "query": query
+        results = self.es.search(index=self.index, body={
+            "query": {
+                "bool": {
+                    "should": [
+                        {
+                            "simple_query_string": {
+                                "query": query
+                            }
                         }
-                    }
-                ],
-                "filter": {
-                    "range": {
-                        "date": {
-                            "gte": start_date or EPOCH,
-                            "lt": end_date or datetime.datetime.now()
+                    ],
+                    "filter": {
+                        "range": {
+                            "date": {
+                                "gte": start_date or EPOCH,
+                                "lt": end_date or datetime.datetime.now()
+                            }
                         }
                     }
                 }
@@ -131,7 +138,7 @@ class ESConnection(object):
         if only_documents:
             return self._format_search(results)
         return results
-
+    
     def delete_by_ids(self, ids, _type="document"):
         """Deletes a document by id
         """
@@ -143,11 +150,14 @@ class ESConnection(object):
         } for _id in ids])
 
     def stats(self, field, query=None):
-        return self.es.field_stats(
+        body = dict(query)
+        body["fields"] = [field]
+        results = self.es.field_stats(
             index=self.index,
-            body=query,
-            fields=[field]
-        )["indices"][self.index]["fields"][field]
+            body=body,
+        )["fields"][field]
+        return results.get(self.index, results.get("_all"))["fields"][field]
+
 
     def delete(self):
         """Removes all the documents in this index

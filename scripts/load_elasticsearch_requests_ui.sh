@@ -12,7 +12,7 @@ s3_backup() {
   curl -XPUT 'http://localhost:9200/_snapshot/my_backup' -d '{
       "type": "s3",
       "settings": {
-          "bucket": "corpii/finance/backups",
+          "bucket": "themeextraction-backup",
           "region": "us-west-2"
       }
   }'
@@ -42,8 +42,4 @@ restore() {
 
 count() {
   curl -XGET "http://localhost:9200/indico-cluster-data/_count"
-}
-
-download() {
-  aws s3 cp s3://corpii/finance/backups
 }
