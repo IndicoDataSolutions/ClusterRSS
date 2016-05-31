@@ -133,6 +133,7 @@ function drawAll(error, dataset) {
   for (var i=0; i<nodes.length; i++) {
     var node = nodes[i]
     if (node.holder) {
+      console.log(node);
       holders.push(node);
     }
     node.border = false;
@@ -338,11 +339,34 @@ function drawAll(error, dataset) {
       var entities = node.indico[entityType];
       for (var j=0; j<entities.length; j++) {
         // save every occurence
-        if (!info[entities[j].text]) {
+        if (entities[j].text.length > 30) {
+          continue;
+        } else if (!info[entities[j].text]) {
           info[entities[j].text] = [{ position: entities[j].position, article: i, cluster: data.cluster, type: entityType }]
         } else {
           info[entities[j].text].push({ position: entities[j].position, article: i, cluster: data.cluster, type: entityType });
         }
+      }
+    });
+    return info;
+  }
+
+  function getClusterSentiment(data) {
+    var info = {'positive': [], 'neutral': [], 'negative': []}
+
+    $.each(data.children, function(i, node) {
+      var sentiment = node.indico['sentiment'];
+      var articleSentiment = { article: i, cluster: data.cluster, sentiment: sentiment };
+      switch (true) {
+        case sentiment < 0.25:
+          info['negative'].push(articleSentiment);
+          break;
+        case sentiment < 0.75:
+          info['neutral'].push(articleSentiment);
+          break;
+        case sentiment > 0.75:
+          info['positive'].push(articleSentiment);
+          break;
       }
     });
     return info;
@@ -381,7 +405,7 @@ function drawAll(error, dataset) {
   function populateNodeInfo(data) {
     updateText(data, ['keywords', 'people', 'places', 'organizations'], '#info');
     updateBar('#node .sentiment-bar', data.indico.sentiment);
-    console.log(data);
+
     $('#node .text p').html(data.summary);
     $('#node .length').text(data.text.split(' ').length);
     $('#node .title').find('a').attr('href', data.link);
@@ -409,14 +433,18 @@ function drawAll(error, dataset) {
     writeList(topKeywords, '#cluster .keywords');
     writeList(topEntities, '#cluster .entities');
 
-    var growthSentences = []
+    var growthObjects = [];
+    var growthStrings = [];
     data.children.map(function(article) {
       for (var i=0; i<article.growth.length; i++) {
-        growthSentences.push({ sentence: article.sentences[i], growth: article.growth[i] })
+        if (growthStrings.indexOf(article.sentences[i]) < 0) {
+          growthObjects.push({ sentence: article.sentences[i], growth: article.growth[i], color: article.color })
+          growthStrings.push(article.sentences[i]);
+        }
       }
     });
 
-    var topGrowth = growthSentences.filter(function(growthSentence) {
+    var topGrowth = growthObjects.filter(function(growthSentence) {
       return growthSentence.sentence.length > 30;
     }).sort(function(a, b) {
       return Math.max(b.growth.positive, b.growth.negative) - Math.max(a.growth.positive, a.growth.negative);
@@ -424,7 +452,62 @@ function drawAll(error, dataset) {
 
     $('#cluster .growth').html('');
     topGrowth.map(function(growthSentence) {
-      $('#cluster .growth').append('<li>'+growthSentence.sentence+'</li>');
+      $('#cluster .growth').append('<li color="'+growthSentence.color+'">'+growthSentence.sentence+'</li>');
+    });
+
+    $('#cluster .growth li').click(function() {
+      var node = colToCircle[$(this).attr('color')];
+      node.selected = true;
+      node.border = true;
+      slideInfoOut(node, 'node');
+      drawCanvas(hiddenContext, true);
+    });
+  }
+
+  function createDistribution(overallSentiment) {
+    var total = {'positive': [], 'neutral': [], 'negative': []}
+    $.each(overallSentiment, function(i, clusterSentiment) {
+      for (var key in total) {
+        total[key] = total[key].concat(clusterSentiment[key]);
+      }
+    });
+
+    var ctx = document.getElementById('sentiment-graph').getContext('2d');
+    var data = {
+      labels: [
+        "Positive",
+        "Neutral",
+        "Negative"
+      ],
+      datasets: [{
+        data: [
+          total.positive.length,
+          total.neutral.length,
+          total.negative.length
+        ],
+        backgroundColor: [
+            "#00C75A",
+            "#E7F6E4",
+            "#ED686D"
+        ],
+        hoverBackgroundColor: [
+            "#00C75A",
+            "#E7F6E4",
+            "#ED686D"
+        ]
+      }]
+    };
+    var myDoughnutChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: data,
+        options: {
+          legend: {
+            labels: {
+              fontColor: "white",
+              strokeStyle: "rgba(0,0,0,0)"
+            }
+          }
+        }
     });
   }
 
@@ -443,11 +526,13 @@ function drawAll(error, dataset) {
     var peopleChunks = [];
     var placesChunks = [];
     var organizationsChunks = [];
+    var overallSentiment = [];
     $.each(data.children, function(i, cluster) {
       keywordChunks.push(getClusterKeywords(cluster));
       peopleChunks.push(getClusterEntities(cluster, 'people'));
       placesChunks.push(getClusterEntities(cluster, 'places'));
       organizationsChunks.push(getClusterEntities(cluster, 'organizations'));
+      overallSentiment.push(getClusterSentiment(cluster));
     });
     var entityChunks = [].concat(peopleChunks, placesChunks, organizationsChunks);
 
@@ -455,6 +540,7 @@ function drawAll(error, dataset) {
     var topKeywords = topItems(combine(keywordChunks), 10);
     writeList(topKeywords, '#top .keywords');
     writeList(topEntities, '#top .entities');
+    createDistribution(overallSentiment);
   }
 
 
@@ -477,7 +563,6 @@ function drawAll(error, dataset) {
     $('#banner').css({'right': '400px'});
     $('#info').css({'right': '0px'});
     $('#chart').css({'right': '200px'});
-    updateSize();
   }
 
   function slideInfoIn() {
@@ -661,7 +746,7 @@ function drawAll(error, dataset) {
         activeCluster = (currentNode.top)? -1 : currentNode.cluster;
 
         setBanner(currentNode);
-        setTooltip(currentNode, e.clientX, e.clientY);
+        if (!Object.is(focus, root)) setTooltip(currentNode, e.clientX, e.clientY);
 
         if (currentNode.cluster != undefined) {
           var cluster = findCluster(currentNode);
@@ -680,6 +765,12 @@ function drawAll(error, dataset) {
   ////////////////////////////////////////////////////////////// 
   ///////////////////// Zoom Function //////////////////////////
   ////////////////////////////////////////////////////////////// 
+
+  $('#add-data').click(function(e) { 
+    // TEMPORARY
+    e.preventDefault();
+    return false;
+  });
 
   $('#zoomOut').click(function(e) {
     e.preventDefault();

@@ -47,12 +47,12 @@ def _fill_cluster_indico_data(result_dict):
         cluster_info["people"] = _create_full_cluster_list(cluster_info, "people")
         cluster_info["places"] = _create_full_cluster_list(cluster_info, "places")
         cluster_info["organizations"] = _create_full_cluster_list(cluster_info, "organizations")
-        cluster_info["keywords"] = sorted(
-            _create_full_cluster_dict(cluster_info, "keywords").items(), key=itemgetter(1)
-        )[-10:]
-        cluster_info['title_keywords'] = sorted(
-            _create_full_cluster_dict(cluster_info, "title_keywords").items(), key=itemgetter(1)
-        )[-10:]
+        cluster_info["keywords"] = [word_pair[0] for word_pair in sorted(
+            _create_full_cluster_dict(cluster_info, "keywords").items(), key=itemgetter(1), reverse=True
+        )[:10]]
+        cluster_info['title_keywords'] = [word_pair[0] for word_pair in sorted(
+            _create_full_cluster_dict(cluster_info, "title_keywords").items(), key=itemgetter(1), reverse=True
+        )[:10]]
         result_dict[cluster] = cluster_info
     return result_dict
 

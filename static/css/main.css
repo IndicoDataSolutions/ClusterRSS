@@ -114,6 +114,9 @@ a {
     font-family: "proxima-nova-300";
     margin-left: 5px;
     cursor: pointer;
+    color: white;
+    border: none;
+    outline: none;
   }
   a#bookmarks { 
     text-decoration: none;
@@ -121,9 +124,6 @@ a {
     margin-right: 30px;
   }
   #zoomOut { 
-    color: white;
-    border: none;
-    outline: none;
     opacity: 0;
   }
 
@@ -184,38 +184,6 @@ a {
     margin-top: 15px;
     margin: 10px -5px 0px -5px;
   }
-  #cluster ul.growth { 
-    margin: 0px;
-    background: #333;
-    padding: 12px 0px;
-    /*border-bottom: 10px solid #333;*/
-  }
-    #cluster ul.growth li {
-      display: block;
-      position: relative;
-      background: #555;
-      box-sizing: border-box;
-      margin: 12px;
-      margin-top: 0px;
-      border-radius: 2px;
-      padding: 10px 15px;
-      box-shadow: 0px 0px 4px 1px rgba(85, 85, 85, 0.47);
-    }
-    #cluster ul.growth li:last-child { margin-bottom: 0px; }
-    #cluster ul.growth li:after {
-      content: "";
-      text-align: right;
-      display: block;
-      height: 100%;
-      position: absolute;
-      background: #4c73dd;
-      top: 0px;
-      left: 0px;
-      padding: 10px 10px;
-      box-sizing: border-box;
-      z-index: 999998;
-      opacity: 0;
-    }
 
   #top .word, #cluster .word {
     display: inline-block;
@@ -239,9 +207,49 @@ a {
 
 
   /********** FOR TOP INFO *********/
+  .sentiment-distribution {
+    margin-top: 10px;
+  }
 
   /********** FOR CLUSTER INFO *********/
-  
+  #cluster ul.growth { 
+    margin: 0px;
+    background: #333;
+    padding: 12px 0px;
+    /*border-bottom: 10px solid #333;*/
+  }
+    #cluster ul.growth li {
+      display: block;
+      position: relative;
+      background: #555;
+      box-sizing: content-box;
+      cursor: pointer;
+      margin: 12px;
+      margin-top: 0px;
+      border-radius: 2px;
+      padding: 10px 15px;
+      box-shadow: 0px 0px 4px 1px rgba(85, 85, 85, 0.47);
+    }
+      #cluster ul.growth li:hover { 
+        border: 1px solid white;
+        padding: 9px 14px;
+      }
+    #cluster ul.growth li:last-child { margin-bottom: 0px; }
+    #cluster ul.growth li:after {
+      content: "";
+      text-align: right;
+      display: block;
+      height: 100%;
+      position: absolute;
+      background: #4c73dd;
+      top: 0px;
+      left: 0px;
+      padding: 10px 10px;
+      box-sizing: border-box;
+      z-index: 999998;
+      opacity: 0;
+    }
+
   /********** FOR NODE INFO *********/
   #node p {
     text-align: left;
