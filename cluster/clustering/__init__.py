@@ -32,7 +32,6 @@ def generate_clusters_dict(entries, all_clusters, all_similarities, feature_vect
     return result_dict
 
 def _fill_cluster_centers(result_dict, cluster_features):
-    cluster_centers = {}
     for cluster, features_list in cluster_features.items():
         array_features = np.array([np.asarray(el).flatten() for el in features_list])
         distance_sums = [sum(dists) for dists in cdist(array_features, array_features, 'euclidean')]
@@ -47,12 +46,12 @@ def _fill_cluster_indico_data(result_dict):
         cluster_info["people"] = _create_full_cluster_list(cluster_info, "people")
         cluster_info["places"] = _create_full_cluster_list(cluster_info, "places")
         cluster_info["organizations"] = _create_full_cluster_list(cluster_info, "organizations")
-        cluster_info["keywords"] = sorted(
-            _create_full_cluster_dict(cluster_info, "keywords").items(), key=itemgetter(1)
-        )[-10:]
-        cluster_info['title_keywords'] = sorted(
-            _create_full_cluster_dict(cluster_info, "title_keywords").items(), key=itemgetter(1)
-        )[-10:]
+        cluster_info["keywords"] = [word_pair[0] for word_pair in sorted(
+            _create_full_cluster_dict(cluster_info, "keywords").items(), key=itemgetter(1), reverse=True
+        )[:10]]
+        cluster_info['title_keywords'] = [word_pair[0] for word_pair in sorted(
+            _create_full_cluster_dict(cluster_info, "title_keywords").items(), key=itemgetter(1), reverse=True
+        )[:10]]
         result_dict[cluster] = cluster_info
     return result_dict
 

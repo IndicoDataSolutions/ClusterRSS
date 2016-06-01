@@ -5,8 +5,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.6/d3.min.js" charset="utf-8"></script>
     <script src="https://d3js.org/queue.v1.min.js"></script>
     
-    <!-- stats -->
+    <!-- Stats.js & Chart.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stats.js/r14/Stats.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.1.4/Chart.min.js"></script>
     
     <!-- jQuery -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
@@ -27,7 +28,8 @@
           <input type="text" name="query" placeholder="Search trends by keyword...">
           <button type="submit"><i class="ion-android-search"></i></button>
         </div>
-
+        <!-- add data currently does nothing -->
+        <div id="add-data" class="query-button">Add data</div>
         <button id="zoomOut" class="query-button">Zoom to top</button>
         <a target="_blank" id="bookmarks" href="/text-mining/bookmarks">
           <div class="query-button">Bookmarks</div>
@@ -104,9 +106,10 @@
           <h2>Important Entities</h2>
           <ul class="entities">
           </ul>
-          <h2>Keyword Mentions</h2>
-          <ul class="keywords">
-          </ul>
+          <h2>Sentiment Breakdown</h2>
+          <div class="sentiment-distribution">
+            <canvas id="sentiment-graph"></canvas>
+          </div>
         </div>
 
       </div>

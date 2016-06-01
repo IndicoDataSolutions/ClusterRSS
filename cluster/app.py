@@ -45,6 +45,7 @@ class QueryHandler(tornado.web.RequestHandler):
         - Pass json serialized articles + cluster numbers to the frontend
     """
     def get(self):
+        # Needs to be reworked to grab possible sources
         self.write(json.dumps({'meow': 'meow'}))
 
     def post(self):
