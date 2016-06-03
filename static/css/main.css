@@ -29,23 +29,35 @@ a {
     padding:10px;
   }
 
-#banner {
+#banner, #filters {
   position: absolute;
   z-index: 9000;
-  top: 64px;
   left: 0px;
   right: 0px;
   background-color: rgba(190,190,190,0.95);
-  display: none;
   text-align: left;
   padding:14px 30px;
   font-size: 18px;
-  transition:500ms right ease-in;
-  -webkit-transition:500ms right ease-in;
+  transition:500ms right ease-in, 500ms top ease-out;
+  -webkit-transition:500ms right ease-in, 500ms top ease-out;
 }
-  #banner span {
+  #banner {
+    top: 64px;
+    display: none;
+  }
+  #banner span, #filters span {
     font-family: "proxima-nova-400";
   }
+
+  #filters {
+    top: -300px;
+  }
+    #filters label {
+      font-size: 14px;
+    }
+    #filters > .row > div {
+      margin-top: 15px;
+    }
 
 #query {
   padding: 12px;
@@ -80,6 +92,8 @@ a {
     outline: none;
     border-radius: 100%;
     cursor: pointer;
+    box-sizing: content-box;
+    padding: 3px;
   }
   .input-box button:focus {
     box-shadow: 0px 0px 4px 1px #4c73dd;

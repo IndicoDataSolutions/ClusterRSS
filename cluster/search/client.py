@@ -81,7 +81,7 @@ class ESConnection(object):
         })
         return self.es.count(index=self.index, body=options)["count"]
 
-    def search(self, query, start_date=None, end_date=None, limit=100, only_documents=True, **kwargs):
+    def search(self, query, source='*', start_date=None, end_date=None, limit=100, only_documents=True, **kwargs):
         """Performs a query on the Elasticsearch connection
         https://www.elastic.co/guide/en/elasticsearch/reference/current/full-text-queries.html
 
@@ -114,7 +114,7 @@ class ESConnection(object):
             u'timed_out': False
         }
         """
-        results = self.es.search(index=self.index, track_scores=True, body={
+        body={
             "query": {
                 "bool": {
                     "should": [
@@ -124,17 +124,23 @@ class ESConnection(object):
                             }
                         }
                     ],
-                    "filter": {
-                        "range": {
-                            "date": {
-                                "gte": start_date or EPOCH,
-                                "lt": end_date or datetime.datetime.now()
+                    "filter": [
+                        {
+                            "range": {
+                                "date": {
+                                    "gte": start_date or EPOCH,
+                                    "lt": end_date or datetime.datetime.now()
+                                }
                             }
                         }
-                    }
-                }
-            }
-        }, size=limit, **kwargs)
+                    ]
+                },
+            },
+        }
+        if source != '*':
+            body["query"]["bool"]["filter"].append({ "term": { "source": source }})
+        
+        results = self.es.search(index=self.index, body=body, track_scores=True, size=limit, **kwargs)
         if only_documents:
             return self._format_search(results)
         return results
@@ -157,6 +163,17 @@ class ESConnection(object):
             body=body,
         )["fields"][field]
         return results.get(self.index, results.get("_all"))["fields"][field]
+
+    def get_uniques(self, field):
+        body = {
+            "aggs" : {
+                "sources" : {
+                    "terms" : { "field" : field }
+                }
+            }
+        }
+        results = self.es.search(index=self.index, track_scores=True, body=body)
+        return results['aggregations']['sources']['buckets']
 
 
     def delete(self):

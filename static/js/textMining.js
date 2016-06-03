@@ -1,3 +1,26 @@
+$.get('/text-mining/query', function(res) {
+  var sourceDictionary = {
+    "thestreet": "TheStreet",
+    "seekingalpha": "SeekingAlpha",
+    "marketwatch": "MarketWatch",
+    "usnews": "U.S.News",
+    "dailyfinance": "DailyFinance",
+  }
+  var sources = JSON.parse(JSON.parse(res)['sources']);
+  
+  var totalArticles = sources.reduce(function(prev, curr) {
+    return prev + curr.doc_count;
+  }, 0)
+  $('#filters [name="source"]').append('<option value="*">All ('+totalArticles+')</option>');
+
+  sources.map(function(sourceObj) {
+    $('#filters [name="source"]').append('\
+      <option value="'+sourceObj.key+'">\
+        '+sourceDictionary[sourceObj.key]+' ('+sourceObj.doc_count+')\
+      </option>');
+  });
+});
+
 function groupBy( clusters , sortingFunction ) {
 
   var groupedClusters = Object.keys(clusters).map(function(cluster) {
@@ -17,15 +40,18 @@ function groupBy( clusters , sortingFunction ) {
 
 $('#query').submit(function(e) {
   e.preventDefault();
-
-  var group = $(this).find('[name="group"]').val();
-  var query = $(this).find('[name="query"]').val();
+  var postData = {
+    'query': $(this).find('[name="query"]').val()
+  }
+  var fields = ["source", "after", "before", "threshold", "limit", "min-samples"];
+  fields.map(function(fieldName) {
+    postData[fieldName] = $('#filters [name="'+fieldName+'"]').val();
+  });
 
   $('#canvas, #hiddenCanvas').remove();
-
   $('.spinner-holder').show();
 
-  $.post('/text-mining/query', JSON.stringify({'group': group, 'query': query}), function (data) {
+  $.post('/text-mining/query', JSON.stringify(postData), function (data) {
     data = JSON.parse(data);
 
     if (data.error === 'bad query') {
@@ -48,6 +74,24 @@ $('#query').submit(function(e) {
   return false;
 });
 
+$('#add-data').click(function(e) { 
+  // TEMPORARY
+  e.preventDefault();
+  return false;
+});
+
+$('#show-filters').hover(function() {
+  $('#banner').hide();
+})
+
+var hiddenFilterTop = '-120px';
+$('#filters').css('top', hiddenFilterTop) // initially starts out of view
+$('#show-filters').click(function(e) {
+  // checks if hidden, if not - hide!
+  var targetTop = ($('#filters').css('top') != hiddenFilterTop)? hiddenFilterTop : '64px';
+  $('#filters').css('top', targetTop);
+  return false;
+});
   
 function drawAll(error, dataset) {
   ////////////////////////////////////////////////////////////// 
@@ -96,7 +140,7 @@ function drawAll(error, dataset) {
       .domain([0,1,2,3])
       .range(['#333','#4c73dd','#4c4c4c','#1c1c1c']);
 
-  var diameter = Math.min(width*0.9, height*0.9),
+  var diameter = Math.min(width*0.98, height*0.98),
     radius = diameter / 2;
     
   var zoomInfo = {
@@ -202,7 +246,9 @@ function drawAll(error, dataset) {
       context.textAlign = "center";
       keywordsOverlayRect(context, node);
       context.fillStyle = '#333';
-      var words = node.info.keywords.join(', ').split(' ');
+      var words = node.info.title_keywords.filter(function(keyword) {
+        return keyword.length > 3;
+      }).join(', ').split(' ');
       var x = ((node.x - zoomInfo.centerX) * zoomInfo.scale) + centerX;
       var maxHeight = 50;
     } else {
@@ -565,12 +611,14 @@ function drawAll(error, dataset) {
     }
 
     $('#banner').css({'right': '400px'});
+    $('#filters').css({'right': '400px'});
     $('#info').css({'right': '0px'});
     $('#chart').css({'right': '200px'});
   }
 
   function slideInfoIn() {
     $('#banner').css({'right': '0px'});
+    $('#filters').css({'right': '0px'});
     $('#info').css({'right': '-400px'});
     $('#chart').css({'right': '0px'});
     updateSize();
@@ -755,12 +803,6 @@ function drawAll(error, dataset) {
   ////////////////////////////////////////////////////////////// 
   ///////////////////// Zoom Function //////////////////////////
   ////////////////////////////////////////////////////////////// 
-
-  $('#add-data').click(function(e) { 
-    // TEMPORARY
-    e.preventDefault();
-    return false;
-  });
 
   $('#zoomOut').click(function(e) {
     e.preventDefault();
