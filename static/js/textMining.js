@@ -701,10 +701,6 @@ function drawAll(error, dataset) {
     } else {
       $('#banner').show();
     }
-
-    // var clusterIndico = findCluster(node);
-    // var info = clusterIndico.info.keywords.join(', ');
-    // $('#banner > span').text(info);
   }
 
   document.getElementById('tooltip').addEventListener('mouseover', function(e) {
