@@ -284,6 +284,8 @@ function drawAll(error, dataset) {
       chosenContext.stroke();
 
       if (node.cluster == focus.cluster && !node.holder) {
+        // For wrapping text on all of the nodes in the zoomed-in
+        // cluster.
         wrapText(context, node);
       }
 
@@ -300,6 +302,9 @@ function drawAll(error, dataset) {
       var holder = holders[i];
 
       if (holder.cluster != activeCluster || activeCluster == -1) {
+        // For adding cluster keywords on top of all the cluster
+        // circles. activeCluster == -1 when your mouse is not on
+        // any clusters.
         wrapText(context, holder);
       }
     } // for i in holders
