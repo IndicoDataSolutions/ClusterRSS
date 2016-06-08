@@ -607,7 +607,7 @@ function drawAll(error, dataset) {
       }
       currentNode.selected = (!currentNode.holder)? true : false;
     } else {
-      setBanner({});
+      $('#banner').hide();
       zoomToCanvas(root);
     }
   
@@ -693,16 +693,6 @@ function drawAll(error, dataset) {
     $('#tooltip').show();
   }
 
-  function setBanner(node) {
-    if (!Object.keys(node).length) {
-      console.log('cooock');
-      $('#banner').hide();
-      return
-    } else {
-      $('#banner').show();
-    }
-  }
-
   document.getElementById('tooltip').addEventListener('mouseover', function(e) {
     $('#tooltip').stop(true, true);
     $('#tooltip').hide();
@@ -738,7 +728,7 @@ function drawAll(error, dataset) {
       drawCanvas(hiddenContext, true);
 
       if (currentNode) {
-        setBanner(currentNode);
+        $('#banner').show();
         currentNode.border = true;
         activeCluster = (currentNode.top)? -1 : currentNode.cluster;
 
@@ -752,7 +742,7 @@ function drawAll(error, dataset) {
         setTooltip({}, 0, 0);
       }
 
-      if (activeCluster === -1) setBanner({});
+      if (activeCluster === -1) $('#banner').hide();
     }
 
   });
