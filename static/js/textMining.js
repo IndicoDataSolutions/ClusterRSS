@@ -133,7 +133,6 @@ function drawAll(error, dataset) {
   for (var i=0; i<nodes.length; i++) {
     var node = nodes[i]
     if (node.holder) {
-      console.log(node);
       holders.push(node);
     }
     node.border = false;
@@ -285,6 +284,8 @@ function drawAll(error, dataset) {
       chosenContext.stroke();
 
       if (node.cluster == focus.cluster && !node.holder) {
+        // For wrapping text on all of the nodes in the zoomed-in
+        // cluster.
         wrapText(context, node);
       }
 
@@ -300,8 +301,11 @@ function drawAll(error, dataset) {
     for (var i=0; i<holders.length; i++) {
       var holder = holders[i];
 
-      if (!(holder.cluster == activeCluster) && holder.children) {
-        if (focus.cluster != holder.cluster) wrapText(context, holder);
+      if (holder.cluster != activeCluster || activeCluster == -1) {
+        // For adding cluster keywords on top of all the cluster
+        // circles. activeCluster == -1 when your mouse is not on
+        // any clusters.
+        wrapText(context, holder);
       }
     } // for i in holders
 
@@ -608,6 +612,7 @@ function drawAll(error, dataset) {
       }
       currentNode.selected = (!currentNode.holder)? true : false;
     } else {
+      $('#banner').hide();
       zoomToCanvas(root);
     }
   
@@ -693,20 +698,6 @@ function drawAll(error, dataset) {
     $('#tooltip').show();
   }
 
-  function setBanner(node) {
-    if (node.top == true || !node.cluster || Object.is(node, {})) {
-      $('#banner').hide();
-      return
-    } else {
-      $('#banner').show();
-    }
-
-    var clusterIndico = findCluster(node);
-    var info = clusterIndico.info.keywords.join(', ');
-
-    // $('#banner > span').text(info);
-  }
-
   document.getElementById('tooltip').addEventListener('mouseover', function(e) {
     $('#tooltip').stop(true, true);
     $('#tooltip').hide();
@@ -742,22 +733,21 @@ function drawAll(error, dataset) {
       drawCanvas(hiddenContext, true);
 
       if (currentNode) {
+        $('#banner').show();
         currentNode.border = true;
         activeCluster = (currentNode.top)? -1 : currentNode.cluster;
 
-        setBanner(currentNode);
         if (!Object.is(focus, root)) setTooltip(currentNode, e.clientX, e.clientY);
 
         if (currentNode.cluster != undefined) {
           var cluster = findCluster(currentNode);
-          setBanner(cluster);
           cluster.border = true;
         }
       } else {
-        activeCluster = -1;
-        setBanner({});
         setTooltip({}, 0, 0);
       }
+
+      if (activeCluster === -1) $('#banner').hide();
     }
 
   });
@@ -793,7 +783,6 @@ function drawAll(error, dataset) {
 
     if (focusNode == root) {
       slideInfoOut(dataset, 'top');
-      setBanner({});
       $('#zoomOut').animate({ 'opacity': 0});
     } else if (focusNode.holder) {
       slideInfoOut(focusNode, 'cluster');
