@@ -1,4 +1,5 @@
 import os, unittest, datetime
+from copy import deepcopy
 
 import cluster
 from cluster.search.schema import Document
@@ -51,6 +52,33 @@ class TestLoadData(unittest.TestCase):
         results = self.es.search("title")
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0]["tags"], ["tag1", "tag2"])
+
+    def test_date_range(self):
+        old_document = Document(
+            title="old",
+            text="embarassingly old subject matter",
+            tags=["old", "older"],
+            link="google.com",
+            date=datetime.datetime(1990, 1, 1)
+        )
+        successes, errors = self.es.upload([old_document])
+        self.assertEqual(successes, 1)
+        self.es.flush()
+
+        results = self.es.search('old', start_date=datetime.datetime(2015, 1, 1))
+        self.assertEqual(len(results), 0)
+
+    def test_source(self):
+        well_sourced_doc, poorly_sourced_doc = [deepcopy(DOCUMENT), deepcopy(DOCUMENT)]
+        well_sourced_doc.update({'source': 'good'})
+        poorly_sourced_doc.update({'source': 'bad'})
+
+        successes, errors = self.es.upload([well_sourced_doc, poorly_sourced_doc])
+        self.assertEqual(successes, 2)
+        self.es.flush()
+
+        results = self.es.search('title', source="good")
+        self.assertEqual(len(results), 1)
 
     def tearDown(self):
         self.es.delete()
