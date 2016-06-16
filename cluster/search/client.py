@@ -139,6 +139,9 @@ class ESConnection(object):
         }
         if source != '*':
             body["query"]["bool"]["filter"].append({ "term": { "source": source }})
+
+        if query == '*':
+            body ={ "query": { 'match_all' : {} } }
         
         results = self.es.search(index=self.index, body=body, track_scores=True, size=limit, **kwargs)
         if only_documents:

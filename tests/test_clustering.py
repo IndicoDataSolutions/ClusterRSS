@@ -21,7 +21,7 @@ LOGGER.addHandler(stream_handler)
 #     )
 # )
 
-INDEX="indico-cluster-date"
+INDEX="indico-cluster-data"
 HOST="localhost:9200"
 
 import tornado.web
@@ -35,7 +35,8 @@ sys.path.append(os.path.join(APP_ROOT, '..'))
 # import your app module
 from cluster.app import make_app
 
-class NewTestCase(tornado.testing.AsyncHTTPTestCase):
+
+class BaseTest(tornado.testing.AsyncHTTPTestCase):
     def get_app(self):
         return make_app()
 
@@ -45,6 +46,28 @@ class NewTestCase(tornado.testing.AsyncHTTPTestCase):
             method='POST',
             body=json.dumps(query_data)
         ).body)
+
+
+class DataIndependentTests(BaseTest):
+
+    def test_basic_query(self):
+        cluster_res = self.query({'query': '*' })
+        self.assertTrue(len(cluster_res.keys()) > 0)
+
+    def test_cluster_article_min(self):
+        cluster_res_conservative = self.query({'query': '*', 'min-samples': '6'})
+        cluster_res_liberal = self.query({'query': '*', 'min-samples': '2'})
+        # If you need less articles to create a cluster you should have more clusters
+        self.assertTrue(len(cluster_res_liberal.keys()) > len(cluster_res_conservative.keys()))
+
+    def test_article_limit(self):
+        # Making these small enough that they should be true with any amount of data over 10
+        cluster_res_default = self.query({'query': '*' })
+        cluster_res_limited = self.query({'query': '*', 'limit': '5'}) # 5 is minimum for code to execute
+        self.assertTrue(len(cluster_res_default.keys()) > len(cluster_res_limited.keys()))
+
+
+class DataDependentTests(BaseTest):
 
     def test_basic_query(self):
         cluster_res = self.query({'query': 'Samsung'})
@@ -61,18 +84,18 @@ class NewTestCase(tornado.testing.AsyncHTTPTestCase):
         # The Street only returns 1 cluster worth of articles on Samsung
         self.assertEqual(len(cluster_res.keys()), 1)
 
-    def test_date_filter(self):
-        cluster_res = self.query({'query': 'Apple', 'start': '2000', 'end': '2005'})
-        # Not too many early articles for Apple
-        self.assertEqual(len(cluster_res.keys()), 4)
+    def test_cluster_article_min(self):
+        cluster_res_default = self.query({'query': 'Samsung', 'min-samples': '3'})
+        cluster_res_liberal = self.query({'query': 'Samsung', 'min-samples': '2'})
+        # If you need less articles to create a cluster you should have more clusters
+        self.assertTrue(len(cluster_res_default.keys()) < len(cluster_res_liberal.keys()))
 
     def test_threshold_filter(self):
         cluster_res_default = self.query({'query': 'Samsung', 'threshold': '0.3'})
         cluster_res_conservative = self.query({'query': 'Samsung', 'threshold': '0.5'})
         self.assertTrue(len(cluster_res_default.keys()) > len(cluster_res_conservative.keys()))
 
-    def test_cluster_article_min(self):
-        cluster_res_default = self.query({'query': 'Samsung', 'min-samples': '3'})
-        cluster_res_liberal = self.query({'query': 'Samsung', 'min-samples': '2'})
-        # If you need less articles to create a cluster you should have more clusters
-        self.assertTrue(len(cluster_res_default.keys()) < len(cluster_res_liberal.keys()))
+    def test_date_filter(self):
+        cluster_res = self.query({'query': 'Apple', 'start': '2000', 'end': '2005'})
+        # Not too many early articles for Apple
+        self.assertEqual(len(cluster_res.keys()), 4)
