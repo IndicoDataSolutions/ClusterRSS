@@ -1,4 +1,5 @@
 text-mining.db
+experiment/
 venv/
 index.json
 backup/

@@ -12,10 +12,10 @@ class DBScanClusterer(object):
             raise ClusterError('empty results')
         kwargs.update({
             "algorithm": algorithm,
-            "metric": "cosine"
+            "metric": metric
         })
 
-    def get_clusters(self, eps_range=[0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, .1]):
+    def get_clusters(self, eps_range=[0.001, 0.002, 0.003, 0.0035, 0.004, 0.0045, 0.005, 0.0055, 0.006, 0.007, 0.008, 0.009, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, .1]):
         best_num_clusters = 0
         best_fitted_response, best_cluster = 0, None
         for epsilon in eps_range:

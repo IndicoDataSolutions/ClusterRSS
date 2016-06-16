@@ -9,6 +9,7 @@
 import os, json
 from os.path import abspath
 import argparse
+from datetime import datetime
 
 import tornado.ioloop
 import tornado.web
@@ -46,24 +47,41 @@ class QueryHandler(tornado.web.RequestHandler):
     """
     def get(self):
         # Needs to be reworked to grab possible sources
-        self.write(json.dumps({'meow': 'meow'}))
+        try:
+            sources = ES.get_uniques('source')
+            self.write(json.dumps({'sources': json.dumps(sources)}))
+        except ClusterError as e:
+            import traceback; traceback.print_exc()
+            self.write(json.dumps({"error": str(e)}))
+        except Exception as e:
+            import traceback; traceback.print_exc()
+            self.write(json.dumps({
+                'error': "Uncaught error - " + str(e)
+            }))
 
     def post(self):
         try:
             data = json.loads(self.request.body)
             query = data.get('query')
-            before = data.get('before')
-            after = data.get('after')
+
+            source = data.get('source', '*')
+            start = datetime(int(data.get('start', 2000)), 1, 1)
+            end = datetime(int(data.get('end', 2016)), 12, 31)
+            ES_score_threshold = float(data.get('threshold', 0.3))
+            article_limit = int(data.get('limit', 500))
+            min_samples = int(data.get('min-samples', 3))
+
             self.set_secure_cookie('current_search', query)
 
-            entries = ES.search(query, start_date=before, end_date=after, limit=1000)
+            entries = ES.search(query, source=source, start_date=start, end_date=end, limit=article_limit)
+            entries = filter(lambda x: x.get('score') > ES_score_threshold, entries)
             entries = list_of_seq_unique_by_key(entries, "title")
 
             if len(entries) < 5:
                 raise ClusterError("insufficient results for given query")
 
             feature_vectors = np.asarray([json.loads(entry['finance_embeddings']) for entry in entries])
-            all_clusters, all_similarities = DBScanClusterer(feature_vectors, algorithm="brute", metric="cosine").get_clusters()
+            all_clusters, all_similarities = DBScanClusterer(feature_vectors, algorithm="brute", metric="cosine", min_samples=min_samples).get_clusters()
             result_dict = generate_clusters_dict(entries, all_clusters, all_similarities, feature_vectors)
 
             self.write(json.dumps(result_dict))
@@ -116,24 +134,26 @@ class Practice(tornado.web.RequestHandler):
 
 # NOTE: nginx will be routing /text-mining requests to this app. For example, posts in javascript
 #       need to specify /text-mining/query, not /query
-application = tornado.web.Application(
-    [
-        (r"/text-mining", MainHandler),
-        (r"/text-mining/bookmarks", BookmarkHandler),
-        (r"/text-mining/query", QueryHandler),
-        (r"/text-mining/practice", Practice)
-    ],
-    template_path=abspath(os.path.join(__file__, "../../templates")),
-    static_url_prefix="/text-mining/static/",
-    static_path=abspath(os.path.join(__file__, "../../static")),
-    cookie_secret="verytemporarycookiesecret", #FIXME
-    debug=DEBUG
-)
+def make_app():
+    return tornado.web.Application(
+        [
+            (r"/text-mining", MainHandler),
+            (r"/text-mining/bookmarks", BookmarkHandler),
+            (r"/text-mining/query", QueryHandler),
+            (r"/text-mining/practice", Practice)
+        ],
+        template_path=abspath(os.path.join(__file__, "../../templates")),
+        static_url_prefix="/text-mining/static/",
+        static_path=abspath(os.path.join(__file__, "../../static")),
+        cookie_secret="verytemporarycookiesecret", #FIXME
+        debug=DEBUG
+    )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=8002)
     args = parser.parse_args()
 
+    application = make_app()
     application.listen(args.port)
     tornado.ioloop.IOLoop.current().start()
