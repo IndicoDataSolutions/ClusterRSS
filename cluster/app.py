@@ -134,24 +134,26 @@ class Practice(tornado.web.RequestHandler):
 
 # NOTE: nginx will be routing /text-mining requests to this app. For example, posts in javascript
 #       need to specify /text-mining/query, not /query
-application = tornado.web.Application(
-    [
-        (r"/text-mining", MainHandler),
-        (r"/text-mining/bookmarks", BookmarkHandler),
-        (r"/text-mining/query", QueryHandler),
-        (r"/text-mining/practice", Practice)
-    ],
-    template_path=abspath(os.path.join(__file__, "../../templates")),
-    static_url_prefix="/text-mining/static/",
-    static_path=abspath(os.path.join(__file__, "../../static")),
-    cookie_secret="verytemporarycookiesecret", #FIXME
-    debug=DEBUG
-)
+def make_app():
+    return tornado.web.Application(
+        [
+            (r"/text-mining", MainHandler),
+            (r"/text-mining/bookmarks", BookmarkHandler),
+            (r"/text-mining/query", QueryHandler),
+            (r"/text-mining/practice", Practice)
+        ],
+        template_path=abspath(os.path.join(__file__, "../../templates")),
+        static_url_prefix="/text-mining/static/",
+        static_path=abspath(os.path.join(__file__, "../../static")),
+        cookie_secret="verytemporarycookiesecret", #FIXME
+        debug=DEBUG
+    )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=8002)
     args = parser.parse_args()
 
+    application = make_app()
     application.listen(args.port)
     tornado.ioloop.IOLoop.current().start()
