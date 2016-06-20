@@ -80,9 +80,12 @@ $('#add-data').click(function(e) {
   return false;
 });
 
-$('#show-filters').hover(function() {
-  $('#banner').hide();
-})
+$('#info, #query, #filters').hover(function() {
+  $('#banner').hide()
+});
+$('#chart').hover(function() {
+  $('#banner').show()
+});
 
 var hiddenFilterTop = '-120px';
 $('#filters').css('top', hiddenFilterTop) // initially starts out of view
@@ -660,7 +663,6 @@ function drawAll(error, dataset) {
       }
       currentNode.selected = (!currentNode.holder)? true : false;
     } else {
-      $('#banner').hide();
       zoomToCanvas(root);
     }
   
@@ -781,7 +783,6 @@ function drawAll(error, dataset) {
       drawCanvas(hiddenContext, true);
 
       if (currentNode) {
-        $('#banner').show();
         currentNode.border = true;
         activeCluster = (currentNode.top)? -1 : currentNode.cluster;
 
@@ -794,8 +795,6 @@ function drawAll(error, dataset) {
       } else {
         setTooltip({}, 0, 0);
       }
-
-      if (activeCluster === -1) $('#banner').hide();
     }
 
   });
