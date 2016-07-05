@@ -142,10 +142,10 @@ class ESConnection(object):
 
         if query == '*':
             body ={ "query": { 'match_all' : {} } }
-        
+
         results = self.es.search(index=self.index, body=body, track_scores=True, size=limit, **kwargs)
         if only_documents:
-            return self._format_search(results)
+            return self._format_search(results, fields="fields" in kwargs)
         return results
 
     def delete_by_ids(self, ids, _type="document"):
@@ -189,11 +189,14 @@ class ESConnection(object):
         """
         return self.es.indices.refresh(self.index)
 
-    def _format_search(self, search_result):
+    def _format_search(self, search_result, fields=False):
         """Pulls out just the found documents"""
         docs = []
         for doc in search_result["hits"]["hits"]:
-            source = doc["_source"]
+            if fields:
+                source = doc.get("fields", doc)
+            else:
+                source = doc.get("source", doc)
             source["score"] = doc["_score"]
             docs.append(source)
         return docs
