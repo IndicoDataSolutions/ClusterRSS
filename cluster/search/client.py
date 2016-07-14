@@ -45,12 +45,12 @@ class ESConnection(object):
             doc["_index"] = self.index
         try:
             return bulk(self.es, map(lambda x: x.prepare(), documents))
-        except:
+        except Exception as e:
             import traceback; traceback.print_exc()
             if attempts > 0:
                 return self.upload(documents, attempts = attempts - 1)
             else:
-                return
+                return e
 
     def update(self, query, scroll, updater, window=500):
         """Updates documents through an updater function passed in"""

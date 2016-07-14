@@ -79,6 +79,9 @@ FIELD_MAPPING = {
     "destinations": "location"
 }
 
+ADD_INDICO = False
+FILTER_DOCUMENTS = False
+
 def _in_sp500(document):
     return any(map(lambda x: x.search(document["text"]), SP500_REGEX)) or \
            any(map(lambda x: x.search(document["title"]), SP500_REGEX))
@@ -142,16 +145,22 @@ def try_except_result(future, rerun, data, default, individual=False, sleep=10):
     try:
         return future.result()
     except Exception as e:
-        import traceback; traceback.print_exc()
         if "Gateway" in str(e):
             time.sleep(sleep)
             return try_except_result(rerun(data), rerun, data, default, individual=False, sleep=sleep*2)
         if individual:
+            import traceback
+            errorLogger.info(traceback.format_exc())
             return [default]
         return [try_except_result(rerun([doc]), rerun, [doc], default, individual=True) for doc in data]
 
 def add_indico(executor, documents):
-    documents = filter(_relevant_and_recent, documents)
+    if not ADD_INDICO:
+        return documents
+
+    if FILTER_DOCUMENTS:
+        documents = filter(_relevant_and_recent, documents)
+
     if not documents:
         return []
     try:
@@ -213,10 +222,16 @@ def add_indico(executor, documents):
             documents[i]["indico"]["organizations"] = analysis.get('organizations')[i]
 
             # Summary
-            documents[i]["summary"] = summaries[i].result()
+            try:
+                documents[i]["summary"] = summaries[i].result()
+            except:
+                documents[i]["summary"] = ""
 
             # Finance Embeddings
-            documents[i]["finance_embeddings"] = json.dumps(embeddings[i].result().tolist())
+            try:
+                documents[i]["finance_embeddings"] = json.dumps(embeddings[i].result().tolist())
+            except:
+                pass
 
         return documents
     except:
@@ -249,6 +264,7 @@ def read_ndjson_file(data_file):
                     documents.append(obj)
             except Exception as e:
                 import traceback; traceback.print_exc()
+                errorLogger.exception(e)
                 errorLogger.info("NDJSON Line reading failed with error: {0}\n{1}:{2}".format(e, data_file, line))
     return documents
 
@@ -282,6 +298,7 @@ def upload_data(es, data_file):
         root.info("Beginning Processing for {0}".format(data_file))
         all_documents = read_file(data_file)
         root.info("Read Data for {0}".format(data_file))
+
         futures = {}
         root.info("Adding Indico for {0}".format(data_file))
         for documents in partition_all(20, all_documents):
@@ -289,7 +306,11 @@ def upload_data(es, data_file):
 
         root.info("Uploading to elasticsearch for {0}".format(data_file))
         for future in concurrent.futures.as_completed(futures):
-            es.upload(future.result())
+            docs = future.result()
+            result = es.upload(docs)
+            if isinstance(result, Exception):
+                errorLogger.error(result)
+                errorLogger.error("Errored Documents: {docs}".format(docs = docs))
             del futures[future]
 
         root.info("Completed to elasticsearch for {0}".format(data_file))
@@ -298,18 +319,18 @@ def upload_data(es, data_file):
         import traceback; traceback.print_exc()
         return "", False
 
-def process(files):
-    executor = ThreadPoolExecutor(max_workers=2)
-    futures = {executor.submit(upload_data, es, _file): _file for _file in files}
-    for future in concurrent.futures.as_completed(futures):
-        with open(COMPLETED_PATH, 'ab') as f:
-            path, success = future.result()
-            if success:
-                f.write(os.path.basename(path) + "\n")
-            del futures[future]
+def process(_file):
+    with open(COMPLETED_PATH, 'ab') as f:
+        path, success = upload_data(es, _file)
+        if success:
+            f.write(os.path.basename(path) + "\n")
 
 if __name__ == "__main__":
     directory = os.path.join(os.path.dirname(__file__), '../../ingress_data')
+
+    if not os.path.exists(COMPLETED_PATH):
+        f = open(COMPLETED_PATH, 'wb')
+        f.close()
 
     with open(COMPLETED_PATH, 'rb') as f:
         completed = map(lambda x: x.strip(), f.readlines())
@@ -318,5 +339,5 @@ if __name__ == "__main__":
     files = filter(lambda x: not any([y in x for y in completed]), files)
 
     p = Pool(NUM_PROCESSES)
-    files = [files[i:i+NUM_PROCESSES] for i in xrange(0, len(files), NUM_PROCESSES)]
+    # files = [files[i:i+NUM_PROCESSES] for i in xrange(0, len(files), NUM_PROCESSES)]
     p.map(process, files)
