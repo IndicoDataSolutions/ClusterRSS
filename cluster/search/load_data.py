@@ -56,7 +56,28 @@ FINANCIAL_WORDS = set(json.loads(open(os.path.join(
 
 SP500_REGEX = [re.compile(r'[^a-zA-Z]'+ re.escape(ticker)+ r'[^a-zA-Z]') for ticker in SP_TICKERS]
 
-es = ESConnection("localhost:9200")
+es = ESConnection("localhost:9200", index="reviews")
+
+FIELD_MAPPING = {
+    "name_post": "title",
+    "name_story": "title",
+    "name": "title",
+    "url_post": "link",
+    "url_story": "link",
+    "url_book": "link",
+    "url_doctors": "link",
+    "url": "link",
+    "name_categorie": "tags",
+    "name_topics": "tags",
+    "description_text": "text",
+    "description": "text",
+    "date_e_post": "date",
+    "date_published": "date",
+    "date_published_story": "date",
+    "name_colleges": "school_name",
+    "state": "location",
+    "destinations": "location"
+}
 
 def _in_sp500(document):
     return any(map(lambda x: x.search(document["text"]), SP500_REGEX)) or \
@@ -65,7 +86,7 @@ def _in_sp500(document):
 def _relevant_and_recent(document):
     if not document.link or "Service Unavailable" in document.text:
         return False
-    if not document.get("text") or not document.get("title"):
+    if not document.get("text"):
         return False
     if _in_sp500(document):
         return True
@@ -76,10 +97,20 @@ def _relevant_and_recent(document):
     return True
 
 def parse_obj_to_document(obj):
-    text = obj.get("description_text")
-    title = obj.get("name_post", obj.get("name_story"))
-    link = obj.get("url_post", obj.get("url_story"))
-    tags = [obj.get("name_categorie", obj.get("name_topics"))]
+    for key in FIELD_MAPPING:
+        if key in obj:
+            obj[FIELD_MAPPING[key]] = obj.pop(key)
+
+    text = obj.get("text")
+    link = obj.get("link")
+
+    if not text or not isinstance(text, basestring):
+        root.debug("Text field was not found in document with fields: {0}".format(obj.keys()))
+        return
+
+    if text.endswith("This is an automated posting."):
+        root.debug("Automated posting found.")
+        return
 
     # Remove CSS & HTML residue
     text = re.sub(r"<[^>]*>", "", text)
@@ -87,30 +118,25 @@ def parse_obj_to_document(obj):
     text = re.sub(r"[[\w\-]*\s*[\.[\w\-]*\s*]*]*\s*{[^}]*}", "", text)
     text = text.encode("ascii", "ignore").decode("ascii", "ignore")
 
+    obj["text"] = text
+    obj["length"] = len(text)
     try:
-        source = urlparse(link).netloc.split(".")[-2]
+        if link:
+            obj["source"] = urlparse(link).netloc.split(".")[-2]
     except:
         import traceback; traceback.print_exc()
-        errorLogger.debug("Link failed for object: {0}".format(obj.keys))
-        source = link
+        errorLogger.debug("Link failed for object: {0}".format(obj.keys()))
+        obj["source"] = link
 
     try:
-        pub_date = date_parse(obj.get("date_published", obj.get("date_published_story", obj.get("date_e_post")))).strftime("%s")
+        obj["date"] = date_parse(obj.get("date")).strftime("%s")
     except:
         errorLogger.debug("Date failed for object: {0}".format(obj.keys()))
-        pub_date = ""
+        obj["date"] = ""
 
-    return Document(
-        title=title,
-        text=text,
-        link=link,
-        tags=tags,
-        length=len(text),
-        date=pub_date,
-        indico={},
-        financial=cross_reference(text, FINANCIAL_WORDS),
-        source=source
-    )
+    obj["financial"] = cross_reference(obj["text"], FINANCIAL_WORDS)
+    obj["indico"] = {}
+    return Document(**obj)
 
 def try_except_result(future, rerun, data, default, individual=False, sleep=10):
     try:
@@ -138,41 +164,53 @@ def add_indico(executor, documents):
 
         title_sentiment_hq = lambda data: executor.submit(indicoio.sentiment_hq, data)
         title_keywords = lambda data: executor.submit(indicoio.keywords, data, version=1)
-        title_ner = lambda data: executor.submit(indicoio.named_entities, data, version=2)
+        title_people = lambda data: executor.submit(indicoio.people, data, version=2)
+        title_places = lambda data: executor.submit(indicoio.places, data, version=2)
+        title_organizations = lambda data: executor.submit(indicoio.organizations, data, version=2)
         sentiment_hq = lambda data: executor.submit(indicoio.sentiment_hq, data)
         keywords = lambda data: executor.submit(indicoio.keywords, data, version=1)
-        ner = lambda data: executor.submit(indicoio.named_entities, data, version=2)
+        people = lambda data: executor.submit(indicoio.people, data, version=2)
+        places = lambda data: executor.submit(indicoio.places, data, version=2)
+        organizations = lambda data: executor.submit(indicoio.organizations, data, version=2)
 
         analysis["title_sentiment_hq"] = title_sentiment_hq(titles)
         analysis["title_keywords"] = title_keywords(titles)
-        analysis["title_ner"] = title_ner(titles)
+        analysis["title_people"] = title_people(titles)
+        analysis["title_places"] = title_places(titles)
+        analysis["title_organizations"] = title_organizations(titles)
         analysis["sentiment_hq"] = sentiment_hq(texts)
         analysis["keywords"] = keywords(texts)
-        analysis["ner"] = ner(texts)
+        analysis["people"] = people(texts)
+        analysis["places"] = places(texts)
+        analysis["organizations"] = organizations(texts)
 
         individual = len(documents) <= 1
         analysis["title_sentiment_hq"] = try_except_result(analysis["title_sentiment_hq"], title_sentiment_hq, titles, -1, individual=individual)
         analysis["title_keywords"] = try_except_result(analysis["title_keywords"], title_keywords, titles, [], individual=individual)
-        analysis["title_ner"] = try_except_result(analysis["title_ner"], title_ner, titles, defaultdict(list), individual=individual)
+        analysis["title_people"] = try_except_result(analysis["title_people"], title_people, titles, defaultdict(list), individual=individual)
+        analysis["title_places"] = try_except_result(analysis["title_places"], title_places, titles, defaultdict(list), individual=individual)
+        analysis["title_organizations"] = try_except_result(analysis["title_organizations"], title_organizations, titles, defaultdict(list), individual=individual)
         analysis["sentiment_hq"] = try_except_result(analysis["sentiment_hq"], sentiment_hq, texts, -1, individual=individual)
         analysis["keywords"] = try_except_result(analysis["keywords"], keywords, texts, [], individual=individual)
-        analysis["ner"] = try_except_result(analysis["ner"], ner, texts, defaultdict(list), individual=individual)
+        analysis["people"] = try_except_result(analysis["people"], people, texts, defaultdict(list), individual=individual)
+        analysis["places"] = try_except_result(analysis["places"], places, texts, defaultdict(list), individual=individual)
+        analysis["organizations"] = try_except_result(analysis["organizations"], organizations, texts, defaultdict(list), individual=individual)
 
         for i in xrange(len(documents)):
             # Title Analysis
             documents[i]["indico"] = {}
             documents[i]["indico"]["title_sentiment"] = analysis.get('title_sentiment_hq')[i]
             documents[i]["indico"]["title_keywords"] = analysis.get('title_keywords')[i]
-            documents[i]["indico"]["title_people"] = analysis.get('title_ner')[i].get("people")
-            documents[i]["indico"]["title_places"] = analysis.get('title_ner')[i].get("places")
-            documents[i]["indico"]["title_organizations"] = analysis.get('title_ner')[i].get("organizations")
+            documents[i]["indico"]["title_people"] = analysis.get('title_people')[i]
+            documents[i]["indico"]["title_places"] = analysis.get('title_places')[i]
+            documents[i]["indico"]["title_organizations"] = analysis.get('title_organizations')[i]
 
             # Main Text
             documents[i]["indico"]["sentiment"] = analysis.get('sentiment_hq')[i]
             documents[i]["indico"]["keywords"] = analysis.get('keywords')[i]
-            documents[i]["indico"]["people"] = analysis.get('ner')[i].get("people")
-            documents[i]["indico"]["places"] = analysis.get('ner')[i].get("places")
-            documents[i]["indico"]["organizations"] = analysis.get('ner')[i].get("organizations")
+            documents[i]["indico"]["people"] = analysis.get('people')[i]
+            documents[i]["indico"]["places"] = analysis.get('places')[i]
+            documents[i]["indico"]["organizations"] = analysis.get('organizations')[i]
 
             # Summary
             documents[i]["summary"] = summaries[i].result()
@@ -193,7 +231,28 @@ def get_all_data_files(current_dir):
             all_files.append(os.path.join(current_dir, filename))
     return all_files
 
-def read_data_file(data_file):
+def read_file(data_file):
+    try:
+        return read_xlsx_file(data_file)
+    except:
+        return read_ndjson_file(data_file)
+
+def read_ndjson_file(data_file):
+    documents = []
+    with open(data_file, 'rb') as f:
+        root.debug("Parsing Documents for {0}".format(data_file))
+        for line in f:
+            try:
+                obj = json.loads(line)
+                obj = parse_obj_to_document(obj)
+                if obj:
+                    documents.append(obj)
+            except Exception as e:
+                import traceback; traceback.print_exc()
+                errorLogger.info("NDJSON Line reading failed with error: {0}\n{1}:{2}".format(e, data_file, line))
+    return documents
+
+def read_xlsx_file(data_file):
     try:
         reader = get_data(data_file, streaming=True)
         columns = reader.next()
@@ -203,19 +262,25 @@ def read_data_file(data_file):
             obj = dict(zip(columns, line))
             if len(obj.get("description_text", "") or "") < DESCRIPTION_THRESHOLD:
                 continue
-            documents.append(parse_obj_to_document(obj))
+            try:
+                obj = {key.lower():value for key,value in obj.iteritems() if not key.startswith("Unnamed: ")}
+                obj = parse_obj_to_document(obj)
+                if obj:
+                    documents.append(obj)
+            except:
+                import traceback; traceback.print_exc()
         return documents
     except:
         import traceback; traceback.print_exc()
-        errorLogger.info("File reading failed: {0}".format(data_file))
-        return []
+        errorLogger.info("XLSX File reading failed: {0}".format(data_file))
+        raise
 
 def upload_data(es, data_file):
     indico_executor = ThreadPoolExecutor(max_workers=4)
     executor = ThreadPoolExecutor(max_workers=4)
     try:
         root.info("Beginning Processing for {0}".format(data_file))
-        all_documents = read_data_file(data_file)
+        all_documents = read_file(data_file)
         root.info("Read Data for {0}".format(data_file))
         futures = {}
         root.info("Adding Indico for {0}".format(data_file))
@@ -236,7 +301,6 @@ def upload_data(es, data_file):
 def process(files):
     executor = ThreadPoolExecutor(max_workers=2)
     futures = {executor.submit(upload_data, es, _file): _file for _file in files}
-
     for future in concurrent.futures.as_completed(futures):
         with open(COMPLETED_PATH, 'ab') as f:
             path, success = future.result()
@@ -245,7 +309,7 @@ def process(files):
             del futures[future]
 
 if __name__ == "__main__":
-    directory = os.path.join(os.path.dirname(__file__), '../../inputxl')
+    directory = os.path.join(os.path.dirname(__file__), '../../ingress_data')
 
     with open(COMPLETED_PATH, 'rb') as f:
         completed = map(lambda x: x.strip(), f.readlines())
