@@ -1,22 +1,26 @@
+import math
+
 INDEX="indico-cluster-data"
 
 class Document(dict):
-    def __init__(self, title="", text="", tags=[], link="", length=0, summary="", financial=[], indico={}, source="", _type="document", date=""):
+    def __init__(self, **kwargs):
         super(Document, self).__init__()
-        self.update({
-            "title": title,
-            "text": text,
-            "tags": tags,
-            "link": link,
-            "length": length,
-            "summary": summary,
-            "financial": financial,
-            "indico": indico,
-            "date": date,
-            "_type": _type,
-            "_id": link,
-            "source": source
-        })
+        kwargs["_type"] = kwargs.pop("_type", "document")
+        if "link" in kwargs:
+            kwargs["_id"] = kwargs["link"]
+        filtered = self._filter_kwargs(kwargs)
+        self.update(filtered)
+
+    def _filter_kwargs(self, kwargs):
+        filtered = {}
+        for key, value in kwargs.iteritems():
+            if isinstance(value, float):
+                if math.isnan(value):
+                    continue
+            if key.lower().startswith("Unnamed:"):
+                continue
+            filtered[key] = value
+        return filtered
 
     def __getattr__(self, key):
         try:
