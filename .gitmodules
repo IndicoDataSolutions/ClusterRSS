@@ -1,0 +1,3 @@
+[submodule "cluster/search"]
+	path = cluster/search
+	url = git@github.com:IndicoDataSolutions/indico-elasticsearch.git
