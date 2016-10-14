@@ -17,10 +17,10 @@ import numpy as np
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from indisearch.client import ESConnection
 
 from cluster.models import Bookmark, Base
 from cluster.clustering import DBScanClusterer, generate_clusters_dict
-from .search.client import ESConnection
 from .errors import ClusterError
 from .utils import list_of_seq_unique_by_key
 
@@ -30,7 +30,10 @@ DEBUG = os.getenv('DEBUG', True) != 'False'
 engine = create_engine('sqlite:///' + abspath(os.path.join(__file__, "../../text-mining.db")))
 Base.metadata.bind = engine
 DBSession = sessionmaker(bind=engine)
-ES = ESConnection("http://localhost:9200", index='indico-cluster-data')
+
+ES = ESConnection("http://{es_host}".format(
+    es_host=os.getenv("ES_HOST", "localhost:9200")
+), index='indico-cluster-data')
 
 class QueryHandler(tornado.web.RequestHandler):
     """
@@ -73,7 +76,7 @@ class QueryHandler(tornado.web.RequestHandler):
 
             self.set_secure_cookie('current_search', query)
 
-            entries = ES.search(query, source=source, start_date=start, end_date=end, limit=article_limit)
+            entries = ES.search(query, filter_by={"source": source}, start_date=start, end_date=end, limit=article_limit)
             entries = filter(lambda x: x.get('score') > ES_score_threshold, entries)
             entries = list_of_seq_unique_by_key(entries, "title")
 

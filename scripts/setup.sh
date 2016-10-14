@@ -34,6 +34,11 @@ git clone https://$GITHUB_ACCESS_TOKEN@github.com/IndicoDataSolutions/ClusterRSS
 cd ClusterRSS
 sudo python setup.py develop
 
+cd ~
+git clone https://$GITHUB_ACCESS_TOKEN@github.com/IndicoDataSolutions/indico-elasticsearch.git
+cd indico-elasticsearch
+sudo python setup.py develop
+
 # Get AWS data
 sudo apt-get install -y awscli
 aws s3 cp --recursive s3://corpii/Finance inputxl
